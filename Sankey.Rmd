@@ -1,0 +1,187 @@
+---
+title: "Sankey"
+author: "Jesus Alvarado Valverde"
+date: "2022-12-07"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+```{r MotifMatches_table,echo = FALSE}
+library(tidyverse)
+library(gridExtra)
+library(ggplot2)
+
+MotifHits_raw<-read_tsv(file="/Users/JAVlvrd/Documents/Toxoplasma-2022/ToxoMotifs/Results/ELM_Dec22/ELM_Dec22_MotifMatches_complete.txt", col_names = T)
+SecEvd <- as.integer(MotifHits_raw$Organelle=="dense_granules")+as.integer(MotifHits_raw$Organelle=="rhoptries")+as.integer(MotifHits_raw$Organelle=="micronemes")
+MotifHits_raw$SecEvd <- sapply(SecEvd, function(x) if(is.na(x)){NA}else if(x){"yes"} else{'no'}) 
+#colnames(MotifHits)
+# 
+# Motif_acc <- as.integer(MotifHits_raw$mean_pLDDT<50)*as.integer(MotifHits_raw$mean_acc>0.36)
+# MotifHits_raw$Motif_acc <- sapply(Motif_acc, function(x) if(is.na(x)){NA}else if(x){"yes"} else{'no'}) 
+
+MotifHits_raw$Secretion <- gsub("(dense_granules)|(rhoptries)|(micronemes)","Secreted",MotifHits_raw$Organelle)
+#MotifHits$Secretion <- sapply(is.na(MotifHits$organelle), function(x) if(x){'Other'}else{x})
+MotifHits_raw$Secretion <- sapply(MotifHits_raw$Secretion=="Secreted",function(x) if(is.na(x)){'Other'}else if(x){"Secreted"}else{"NonSecreted"})
+
+```
+```{R ELM_taxons, echo=FALSE}
+elm_tax <- read_tsv(file="/Users/JAVlvrd/Documents/Toxoplasma-2022/ToxoMotifs/Data/elm_classes_Dec22_taxons.tab.txt", col_names = T)
+elm_tax$code_bin <- paste(paste(as.character(elm_tax$ELM_Tg),as.character(elm_tax$InterPro_Tg),sep=""),as.character(elm_tax$ELM_Hs),sep="")
+
+tax_codes <- tibble(code_bin=c("000", "001", "010", "011", "100","101", "110", "111"),code_tax=c(4,3,4,3,4,3,2,1))
+
+elm_tax <- left_join(elm_tax,tax_codes, by = "code_bin") 
+elm_tax <- elm_tax %>% select(Motif_Name,code_tax)
+MotifHits_raw <- left_join(MotifHits_raw,elm_tax,by="Motif_Name")
+
+```
+```{r consolidate AF values,echo = FALSE}
+#Check which values are present in both AlphaFold and ColabFold scores
+temp <- (1*is.na(MotifHits_raw$mean_acc_a)+1*is.na(MotifHits_raw$mean_acc_b))==0
+
+#Change overlapping ColabFold scores to NA to keep only the AlphaFold ones
+MotifHits_raw[temp,28]<-NA
+MotifHits_raw[temp,29]<-NA
+
+#Combine scores
+MotifHits_raw$mean_pLDDT <- sapply(MotifHits_raw$mean_pLDDT_a, function(x) if(is.na(x)){0}else{x})+sapply(MotifHits_raw$mean_pLDDT_b, function(x) if(is.na(x)){0}else{x})
+MotifHits_raw$mean_acc <- sapply(MotifHits_raw$mean_acc_a, function(x) if(is.na(x)){0}else{x})+sapply(MotifHits_raw$mean_acc_b, function(x) if(is.na(x)){0}else{x})
+
+MotifHits_raw$mean_pLDDT <- sapply(MotifHits_raw$mean_pLDDT, function(x) if(x==0){NA}else{x})
+MotifHits_raw$mean_acc <- sapply(MotifHits_raw$mean_acc, function(x) if(x==0){NA}else{x})
+
+MotifHits_raw$Motif_acc <- MotifHits_raw$mean_acc_a/(MotifHits_raw$mean_pLDDT_a/100)
+
+# STAT1<-read_tsv(file="/Users/JAVlvrd/Documents/Toxoplasma-2022/ToxoMotifs/Results/STAT_MotifMatches_complete.txt", col_names = T)
+# SecEvd <- as.integer(STAT1$Organelle=="dense_granules")+as.integer(STAT1$Organelle=="rhoptries")+as.integer(STAT1$Organelle=="micronemes")
+# STAT1$SecEvd <- sapply(SecEvd, function(x) if(is.na(x)){NA}else if(x){"yes"} else{'no'}) 
+rm(temp)
+```
+
+```{R Match_tax_filt1, echo=FALSE}
+MotifHits <- MotifHits_raw %>% filter(code_tax==1 | code_tax==2 | (code_tax==3 & SecEvd=="yes"))
+
+#Instance number
+ MotifHits <- MotifHits %>% filter(Motif_Name!="DEG_Nend_Nbox_1" & Motif_Name!="DEG_Nend_UBRbox_1" & Motif_Name!="DEG_Nend_UBRbox_2" & Motif_Name!="DEG_Nend_UBRbox_3" & Motif_Name!="LIG_BIR_II_1" & Motif_Name!="LIG_IBS_1" & Motif_Name!="LIG_Pex14_4" & Motif_Name!="LIG_RPA_C_Insects"  & Motif_Name!="LIG_RPA_C_Plants" & Motif_Name!="MOD_Cter_Amidation"  & Motif_Name!="MOD_NEK2_2")
+
+
+```
+
+```{R Filts, echo=FALSE}
+MotifHits_filt <- MotifHits %>% filter(Motif_Disorder>=0.4 & (is.na(mean_pLDDT) | Motif_acc>0.8) & presence_str>0.7 & presence_spc>0.2 )
+#MotifHits_filt<- MotifHits_filt %>% select(-Protein_ID,-ExpEvd,-key,-Dis_context,-Predicted_Location_TAGM_MAP, -Final_Probability_TAGM_MAP)
+
+```
+
+```{R Sankey 1, echo=FALSE}
+library(devtools)
+library(gridExtra)
+# save the widget
+library(htmlwidgets)
+
+# Libraries
+library(viridis)
+library(patchwork)
+library(hrbrthemes)
+library(circlize)
+library(networkD3)
+
+organelles<-c("micronemes","rhoptries","dense_granules")
+types <- c("CLV","DEG","DOC","LIG","MOD","TRG")
+secretion <- c("Secreted","NonSecreted","Other")
+
+
+vals_df <- tibble(organelles=organelles)
+
+vals_1 <- c()
+c=1
+for(i in 1:3){
+  for(j in 1:6){
+    hits <- MotifHits %>% filter(Organelle==organelles[i] & Motif_Type==types[j]) %>% nrow()
+    vals_1[c] <- hits
+    c <-  c + 1
+  }
+}
+
+vals_2 <- c()
+
+c=1
+for(i in 1:3){
+  for(j in 1:6){
+    hits <- MotifHits_filt %>% filter(Organelle==organelles[i] & Motif_Type==types[j]) %>% nrow()
+    vals_2[c] <- hits
+    c <-  c + 1
+  }
+}
+
+organelles<-c("Micronemes","Rhoptries","Dense granules")
+data_long<-data.frame(ORG=rep(organelles, times=c(6,6,6)), TY=rep(types, times=3),values=vals_1)
+data_long<-data.frame(ORG=rep(organelles, times=c(6,6,6)), TY=rep(types, times=3),values=vals_2)
+
+data_long <- data_long %>% filter(values>0)
+nodes <- data.frame(name=c(as.character(data_long$ORG), as.character(data_long$TY)) %>% unique())
+
+data_long$IDsource=match(data_long$ORG, nodes$name)-1
+data_long$IDtarget=match(data_long$TY, nodes$name)-1
+
+ColourScal ='d3.scaleOrdinal() .range(["#FED756","#8DB7E2", "#70BF4A", "#734595","#A1BE1F", "#F49E17", "#3B6FB6", "#D41645","#F4C61F"])'
+
+p1<-sankeyNetwork(Links = data_long, Nodes = nodes,
+                    Source = "IDsource", Target = "IDtarget",
+                    Value = "values", NodeID = "name", 
+                    sinksRight=FALSE, colourScale=ColourScal, 
+                    nodeWidth=50, nodePadding=30,
+                    fontSize=20, fontFamily = 'Cambria',
+                    height = 500, width = 1000)
+p1
+#saveWidget(p2_1, file=paste0( getwd(), "SLiM_Organelles_Bar_raw.html"))
+#saveWidget(p2_2, file=paste0( getwd(), "SLiM_Organelles_Bar_filt.html"))
+```
+
+```{R Sankey, echo=FALSE}
+vals_3 <- c()
+
+c=1
+for(i in 1:3){
+  for(j in 1:6){
+    hits <- MotifHits_filt %>% filter(Secretion==secretion[i] & Motif_Type==types[j]) %>% nrow()
+    vals_3[c] <- hits
+    c <-  c + 1
+  }
+}
+
+vals_df <- tibble(Secretion=secretion)
+
+data_long<-data.frame(SEG=rep(secretion, times=c(6,6,6)), TY=rep(types, times=3),values=vals_3)
+
+data_long <- data_long %>% filter(values>0)
+nodes <- data.frame(name=c(as.character(data_long$SEG), as.character(data_long$TY)) %>% unique())
+
+data_long$IDsource=match(data_long$SEG, nodes$name)-1
+data_long$IDtarget=match(data_long$TY, nodes$name)-1
+
+ColourScal ='d3.scaleOrdinal() .range(["#18974C", "darkgrey", "grey", "#734595","#A1BE1F", "#F49E17", "#3B6FB6", "#D41645","#F4C61F"])'
+
+
+p2<-sankeyNetwork(Links = data_long, Nodes = nodes,
+                    Source = "IDsource", Target = "IDtarget",
+                    Value = "values", NodeID = "name", 
+                    sinksRight=FALSE, colourScale=ColourScal, 
+                    nodeWidth=50, nodePadding=30,
+                    fontSize=20, fontFamily = 'Cambria',
+                    height = 500, width = 1000)
+
+p2
+
+
+
+```
+
+```{R}
+
+```
+Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.

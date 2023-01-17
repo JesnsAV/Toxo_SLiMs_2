@@ -19,6 +19,7 @@ input1<- args[1]
 # input3<- args[3]
 # input4<- args[4]
 #input1 <- "ELM_test"
+#input1 <- "ELM_Sep22"
 
 #Motif Matches file processing for data integration
 #input1 <- args[1]
@@ -67,7 +68,7 @@ MotifHits$Organelle <- gsub("^[0-9][0-9]S_","",MotifHits$Organelle)
 brad <- read_tsv("/Users/JAVlvrd/Documents/Toxoplasma-2021/Motif_Enrichments/Nadipuram2020_GRAnames.txt")
 tach <- MotifHits %>% filter(Organelle=="dense_granules") %>% select(seq_id) %>% unique()
 temp <- intersect(tach$seq_id, brad$ToxoDB)
-temp <- setdiff( brad$ToxoDB,tach$seq_id)
+temp <- setdiff(brad$ToxoDB,tach$seq_id)
 
 bradMotifs <- MotifHits[MotifHits$seq_id %in% temp,]
 bradMotifs <- bradMotifs %>% select(seq_id,LocEvd,Organelle,Product_Description)
@@ -79,16 +80,18 @@ bradMotifs <- bradMotifs[!duplicated(bradMotifs$seq_id),]
 if(nrow(bradMotifs)>0){
   for(i in 1:length(temp)){
     change <-MotifHits[MotifHits$seq_id==temp[i],] %>% select(LocEvd)
-    if(change[1,1]=="no"){
-      MotifHits[MotifHits$seq_id==temp[i],19] <- "yes"
-    }
-    change <-MotifHits[MotifHits$seq_id==temp[i],]  %>% select(Organelle)
-    if(is.na(change[1,1])){
-      MotifHits[MotifHits$seq_id==temp[i],20] <- "dense_granules"
-    }
-    change <-MotifHits[MotifHits$seq_id==temp[i],]  %>% select(Product_Description)
-    if(is.na(change[1,1])){
-      MotifHits[MotifHits$seq_id==temp[i],15] <- brad[brad$ToxoDB==temp[i],2]
+    if(nrow(change)>0){
+      if(change[1,1]=="no"){
+        MotifHits[MotifHits$seq_id==temp[i],19] <- "yes"
+      }
+      change <-MotifHits[MotifHits$seq_id==temp[i],]  %>% select(Organelle)
+      if(is.na(change[1,1])){
+        MotifHits[MotifHits$seq_id==temp[i],20] <- "dense_granules"
+      }
+      change <-MotifHits[MotifHits$seq_id==temp[i],]  %>% select(Product_Description)
+      if(is.na(change[1,1])){
+        MotifHits[MotifHits$seq_id==temp[i],15] <- brad[brad$ToxoDB==temp[i],2]
+      }
     }
   }
   rm(i, temp,change)
@@ -105,18 +108,41 @@ rm(mods_file)
 MotifHits <-  left_join(MotifHits,mods_table, by = "key") 
 rm(mods_table)
 
+#### Add domain info ####
+dom_file <- paste(input1,"_MotifMatches_doms.txt",sep="")
+#mods_file <- input3
+doms_table <-read_tsv(dom_file,col_names =T)
+rm(dom_file)
+
+MotifHits <-  left_join(MotifHits,doms_table, by = "key")
+rm(doms_table)
+
 
 #### Add AlphaFold values ####
 af_file <- paste(input1,"_MotifMatches_AF_extension.txt",sep="")
 #af_file <- input4
 af_table <- read_tsv(file=af_file, col_names = F)
-colnames(af_table)<- c('key','mean_pLDDT','mean_acc')
-af_table$mean_pLDDT<-as.numeric(af_table$mean_pLDDT)
-af_table$mean_acc<-as.numeric(af_table$mean_acc)
+colnames(af_table)<- c('key','mean_pLDDT_a','mean_acc_a')
+af_table$mean_pLDDT_a<-as.numeric(af_table$mean_pLDDT_a)
+af_table$mean_acc_a<-as.numeric(af_table$mean_acc_a)
 rm(af_file)
+af_table <- af_table %>% filter(!is.na(mean_pLDDT_a))
 
 MotifHits <- left_join(MotifHits,af_table, by="key")
 rm(af_table)
+
+af_file <- paste(input1,"_MotifMatches_AF_extension2.txt",sep="")
+#af_file <- input4
+af_table <- read_tsv(file=af_file, col_names = F)
+colnames(af_table)<- c('key','mean_pLDDT_b','mean_acc_b')
+af_table$mean_pLDDT_b<-as.numeric(af_table$mean_pLDDT_b)
+af_table$mean_acc_b<-as.numeric(af_table$mean_acc_b)
+rm(af_file)
+af_table <- af_table %>% filter(!is.na(mean_pLDDT_b))
+
+MotifHits <- left_join(MotifHits,af_table, by="key")
+rm(af_table)
+
 # #### Add ToxoDB descriptions ####
 # descriptions <- read_tsv("/Users/JAVlvrd/Documents/Toxoplasma-2021/Motif_Enrichments/result_Files/elm_classes_11.2021_filt_ToxoDB_descriptions.txt",col_names = F)
 # descriptions <- select(descriptions, X1,X3)

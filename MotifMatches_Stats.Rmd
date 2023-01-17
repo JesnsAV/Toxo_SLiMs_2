@@ -1,0 +1,431 @@
+---
+title: "MotifMatches_Stats"
+author: "Jesus Alvarado Valverde"
+date: '2022-10-25'
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+```{r MotifMatches_table}
+library(tidyverse)
+library(gridExtra)
+library(knitr) 
+
+MotifHits_raw<-read_tsv(file="/Users/JAVlvrd/Documents/Toxoplasma-2022/ToxoMotifs/Results/ELM_Dec22/ELM_Dec22_MotifMatches_complete.txt", col_names = T)
+SecEvd <- as.integer(MotifHits_raw$Organelle=="dense_granules")+as.integer(MotifHits_raw$Organelle=="rhoptries")+as.integer(MotifHits_raw$Organelle=="micronemes")
+MotifHits_raw$SecEvd <- sapply(SecEvd, function(x) if(is.na(x)){NA}else if(x){"yes"} else{'no'}) 
+colnames(MotifHits_raw)
+
+# MotifHits <- MotifHits %>% filter(Motif_Name!="CLV_PCSK_KEX2_1" & Motif_Name!="CLV_Separin_Fungi" & Motif_Name!="DEG_SCF_COI1_1" & Motif_Name!="DEG_SCF_TIR1_1" & Motif_Name!="DOC_CDC14_PxL_1" & Motif_Name!="DOC_CYCLIN_yClb1_LxF_4" & Motif_Name!="DOC_CYCLIN_yClb3_PxF_3" & Motif_Name!="DOC_CYCLIN_yClb5_NLxxxL_5" & Motif_Name!="DOC_CYCLIN_yCln2_LP_2" & Motif_Name!="LIG_APCC_ABBAyCdc20_2" & Motif_Name!="LIG_APCC_Cbox_2" & Motif_Name!="LIG_BIR_III_3" & Motif_Name!="LIG_BIR_III_4" & Motif_Name!="LIG_CID_NIM_1" & Motif_Name!="LIG_LIR_Nem_3" & Motif_Name!="LIG_LYPXL_yS_3" & Motif_Name!="LIG_Mtr4_Air2_1" & Motif_Name!="LIG_Mtr4_Trf4_1" & Motif_Name!="LIG_PCNA_yPIPBox_3" & Motif_Name!="LIG_Pex14_4" & Motif_Name!="LIG_RPA_C_Fungi" & Motif_Name!="LIG_RPA_C_Insects" & Motif_Name!="LIG_RPA_C_Plants" & Motif_Name!="LIG_RuBisCO_WRxxL_1" & Motif_Name!="LIG_WD40_WDR5_VDV_2" & Motif_Name!="LIG_WD40_WDR5_WIN_3")
+#Instance number
+MotifHits_raw <- MotifHits_raw %>% filter(Motif_Name!="DEG_Nend_Nbox_1" & Motif_Name!="DEG_Nend_UBRbox_1" & Motif_Name!="DEG_Nend_UBRbox_2" & Motif_Name!="DEG_Nend_UBRbox_3" & Motif_Name!="LIG_BIR_II_1" & Motif_Name!="LIG_IBS_1" & Motif_Name!="LIG_Pex14_4" & Motif_Name!="LIG_RPA_C_Insects"  & Motif_Name!="LIG_RPA_C_Plants" & Motif_Name!="MOD_Cter_Amidation"  & Motif_Name!="MOD_NEK2_2")
+
+
+```
+```{R ELM_taxons, echo=FALSE}
+elm_tax <- read_tsv(file="/Users/JAVlvrd/Documents/Toxoplasma-2022/ToxoMotifs/Data/elm_classes_Dec22_taxons.tab.txt", col_names = T)
+elm_tax$code_bin <- paste(paste(as.character(elm_tax$ELM_Tg),as.character(elm_tax$InterPro_Tg),sep=""),as.character(elm_tax$ELM_Hs),sep="")
+
+tax_codes <- tibble(code_bin=c("000", "001", "010", "011", "100","101", "110", "111"),code_tax=c(4,3,4,3,4,3,2,1))
+elm_tax <- left_join(elm_tax,tax_codes, by = "code_bin") 
+
+elm_tax <- elm_tax %>% filter(Instances>0)
+
+kable(table(elm_tax$code_bin))
+kable(table(elm_tax$code_bin)/nrow(elm_tax))
+kable(table(elm_tax$code_tax))
+kable(table(elm_tax$code_tax)/nrow(elm_tax))
+
+elm_tax <- elm_tax %>% select(Motif_Name,code_tax)
+
+MotifHits_raw <- left_join(MotifHits_raw,elm_tax,by="Motif_Name")
+kable(table(MotifHits_raw$code_tax))
+kable(table(MotifHits_raw$code_tax)/nrow(MotifHits_raw))
+```
+```{r consolidate AF values,echo = FALSE}
+#Check which values are present in both AlphaFold and ColabFold scores
+temp <- (1*is.na(MotifHits_raw$mean_acc_a)+1*is.na(MotifHits_raw$mean_acc_b))==0
+
+#Change overlapping ColabFold scores to NA to keep only the AlphaFold ones
+MotifHits_raw[temp,28]<-NA
+MotifHits_raw[temp,29]<-NA
+
+#Combine scores
+MotifHits_raw$mean_pLDDT <- sapply(MotifHits_raw$mean_pLDDT_a, function(x) if(is.na(x)){0}else{x})+sapply(MotifHits_raw$mean_pLDDT_b, function(x) if(is.na(x)){0}else{x})
+MotifHits_raw$mean_acc <- sapply(MotifHits_raw$mean_acc_a, function(x) if(is.na(x)){0}else{x})+sapply(MotifHits_raw$mean_acc_b, function(x) if(is.na(x)){0}else{x})
+
+MotifHits_raw$mean_pLDDT <- sapply(MotifHits_raw$mean_pLDDT, function(x) if(x==0){NA}else{x})
+MotifHits_raw$mean_acc <- sapply(MotifHits_raw$mean_acc, function(x) if(x==0){NA}else{x})
+
+MotifHits_raw$Motif_acc <- MotifHits_raw$mean_acc_a/(MotifHits_raw$mean_pLDDT_a/100)
+
+# STAT1<-read_tsv(file="/Users/JAVlvrd/Documents/Toxoplasma-2022/ToxoMotifs/Results/STAT_MotifMatches_complete.txt", col_names = T)
+# SecEvd <- as.integer(STAT1$Organelle=="dense_granules")+as.integer(STAT1$Organelle=="rhoptries")+as.integer(STAT1$Organelle=="micronemes")
+# STAT1$SecEvd <- sapply(SecEvd, function(x) if(is.na(x)){NA}else if(x){"yes"} else{'no'}) 
+rm(temp)
+```
+
+```{R Match_tax_filt, echo=FALSE}
+MotifHits <- MotifHits_raw %>% filter(code_tax==1 | code_tax==2 | (code_tax==3 & SecEvd=="yes"))
+```
+
+
+```{r Disorder, echo=FALSE}
+library(ggplot2)
+library(knitr) 
+
+thrs_dis <- 0.4
+
+ggplot(MotifHits, aes(x=Motif_Disorder)) +  geom_density() +
+  ggtitle("Motif disorder scores") +  xlab("IUPRED2 score") + ylab("Density") +
+  geom_vline(xintercept=thrs_dis, col="red", size=0.5) + theme_classic() +
+  theme(axis.text=element_text(size=12),axis.title=element_text(size=12,face="bold"))
+
+ggplot(MotifHits[!is.na(MotifHits$mean_pLDDT),], aes(x=Motif_Disorder)) +  geom_density() +
+  ggtitle("Motif disorder scores, proteins with AF2 structures") +  xlab("IUPRED2 score") + ylab("Density") + 
+  geom_vline(xintercept=thrs_dis, col="red", size=0.5) + theme_classic() +
+  theme(axis.text=element_text(size=12),axis.title=element_text(size=12,face="bold"))
+
+ggplot(MotifHits, aes(x=Motif_Disorder, col=Motif_Type)) +  geom_density() +
+  ggtitle("Motif disorder scores by Motif Type ") +  xlab("IUPRED2 score") + ylab("Density") +
+  geom_vline(xintercept=thrs_dis, col="red", size=0.5) + 
+  scale_color_manual(values=c("#734595","#A1BE1F","#F49E17","#3B6FB6","#D41645","#F4C61F")) + theme_classic() +
+  theme(axis.text=element_text(size=12),axis.title=element_text(size=12,face="bold"))
+
+ggplot(MotifHits, aes(x=Motif_Disorder, col=SecEvd)) +  geom_density() +
+  ggtitle("Motif disorder scores by Secretion ") +  xlab("IUPRED2 score") + ylab("Density") + 
+  geom_vline(xintercept=thrs_dis, col="red", size=0.5) +
+  scale_color_manual(values=c("grey","#18974C")) + theme_classic() +
+  theme(axis.text=element_text(size=12),axis.title=element_text(size=12,face="bold"))
+
+```
+
+```{r Struct_1, echo=FALSE}
+#thrs_acc <- 0.36 # https://doi.org/10.1002/prot.340200303
+thrs_acc <- 0.4
+
+ggplot(MotifHits, aes(x=mean_acc)) +  geom_density() +geom_density(aes(x=mean_acc, col=Dis_context)) +
+  ggtitle("Motif DSSP scores") +  xlab("Mean accessibility") + ylab("Density") + 
+  geom_vline(xintercept=thrs_acc, col="red", size=0.5) +
+  scale_color_manual(values=c("grey","#18974C")) + theme_classic() +
+  theme(axis.text=element_text(size=12),axis.title=element_text(size=12,face="bold"))
+
+# ggplot(MotifHits, aes(x=mean_acc, col=Dis_context)) +  geom_density() + 
+#   ggtitle("Motif DSSP scores by Secretion") +  xlab("mean accessibility") + ylab("Density") + 
+#   scale_color_manual(values=c("grey","#18974C")) + theme_classic()
+
+ggplot(MotifHits[MotifHits$Dis_context=="order",], aes(x=mean_acc, col=Motif_Type)) +  geom_density() +
+  ggtitle("Motif in Order Context DSSP scores by Motif Type") +  xlab("mean accessibility") + ylab("Density") + 
+  geom_vline(xintercept=thrs_acc, col="red", size=0.5) +
+  scale_color_manual(values=c("#734595","#A1BE1F","#F49E17","#3B6FB6","#D41645","#F4C61F")) + theme_classic() +
+  theme(axis.text=element_text(size=12),axis.title=element_text(size=12,face="bold"))
+
+ggplot(MotifHits[MotifHits$Dis_context=="disorder",], aes(x=mean_acc, col=Motif_Type)) +  geom_density() +
+  ggtitle("Motif in Disorder Context DSSP scores by Motif Type") +  xlab("mean accessibility") + ylab("Density") + 
+  geom_vline(xintercept=thrs_acc, col="red", size=0.5) +
+  scale_color_manual(values=c("#734595","#A1BE1F","#F49E17","#3B6FB6","#D41645","#F4C61F")) + theme_classic() +
+  theme(axis.text=element_text(size=12),axis.title=element_text(size=12,face="bold"))
+
+ggplot(MotifHits[MotifHits$Dis_context=="order",], aes(x=mean_acc, col=SecEvd)) +  geom_density() +
+  ggtitle("Motif in Order Context DSSP scores by Secretion") +  xlab("mean accessibility") + ylab("Density") + 
+  geom_vline(xintercept=thrs_acc, col="red", size=0.5) +
+  scale_color_manual(values=c("grey","#18974C")) + theme_classic() +
+  theme(axis.text=element_text(size=12),axis.title=element_text(size=12,face="bold"))
+
+ggplot(MotifHits[MotifHits$Dis_context=="disorder",], aes(x=mean_acc, col=SecEvd)) +  geom_density() +
+  ggtitle("Motif in Disorder Context DSSP scores by Secretion") +  xlab("mean accessibility") + ylab("Density") + 
+  geom_vline(xintercept=thrs_acc, col="red", size=0.5) +
+  scale_color_manual(values=c("grey","#18974C")) + theme_classic() +
+  theme(axis.text=element_text(size=12),axis.title=element_text(size=12,face="bold"))
+
+```
+```{r Struct_2, echo=FALSE}
+thrs_pLDDT <- 50
+
+ggplot(MotifHits, aes(x=mean_pLDDT)) +  geom_density() + geom_density(aes(x=mean_pLDDT, col=Dis_context)) +
+  ggtitle("Motif AF2 scores") +  xlab("mean pLDDT") + ylab("Density")  + 
+  geom_vline(xintercept=thrs_pLDDT, col="red", size=0.5) +
+  scale_color_manual(values=c("grey","#18974C"))+ theme_classic() +
+  theme(axis.text=element_text(size=12),axis.title=element_text(size=12,face="bold"))
+
+# ggplot(MotifHits, aes(x=mean_pLDDT, col=Dis_context)) +  geom_density() +
+#   ggtitle("Motif AF2 scores by Secretion ") +  xlab("mean pLDDT") + ylab("Density") + 
+#   scale_color_manual(values=c("grey","#18974C")) + theme_classic()
+
+ggplot(MotifHits[MotifHits$Dis_context=="order",], aes(x=mean_pLDDT, col=Motif_Type)) +  geom_density() +
+  ggtitle("Motif in Order Context AF2 scores by Motif Type ") +  xlab("mean pLDDT") + ylab("Density") + 
+  geom_vline(xintercept=thrs_pLDDT, col="red", size=0.5) +
+  scale_color_manual(values=c("#734595","#A1BE1F","#F49E17","#3B6FB6","#D41645","#F4C61F")) + theme_classic() +
+  theme(axis.text=element_text(size=12),axis.title=element_text(size=12,face="bold"))
+
+ggplot(MotifHits[MotifHits$Dis_context=="order",], aes(x=mean_pLDDT, col=SecEvd)) +  geom_density() +
+  ggtitle("Motif in Order Context AF2 scores by Secretion ") +  xlab("mean pLDDT") + ylab("Density") + 
+  geom_vline(xintercept=thrs_pLDDT, col="red", size=0.5) +
+  scale_color_manual(values=c("grey","#18974C")) + theme_classic() +
+  theme(axis.text=element_text(size=12),axis.title=element_text(size=12,face="bold"))
+
+ggplot(MotifHits[MotifHits$Dis_context=="disorder",], aes(x=mean_pLDDT, col=Motif_Type)) +  geom_density() +
+  ggtitle("Motif in Disorder Context AF2 scores by Motif Type ") +  xlab("mean pLDDT") + ylab("Density") + 
+  geom_vline(xintercept=thrs_pLDDT, col="red", size=0.5) +
+  scale_color_manual(values=c("#734595","#A1BE1F","#F49E17","#3B6FB6","#D41645","#F4C61F")) + theme_classic() +
+  theme(axis.text=element_text(size=12),axis.title=element_text(size=12,face="bold"))
+
+ggplot(MotifHits[MotifHits$Dis_context=="disorder",], aes(x=mean_pLDDT, col=SecEvd)) +  geom_density() +
+  ggtitle("Motif in Disorder Context AF2 scores by Secretion ") +  xlab("mean pLDDT") + ylab("Density") + 
+  geom_vline(xintercept=thrs_pLDDT, col="red", size=0.5) +
+  scale_color_manual(values=c("grey","#18974C")) + theme_classic() +
+  theme(axis.text=element_text(size=12),axis.title=element_text(size=12,face="bold"))
+
+```
+
+```{r Volcano}
+library(plotly)
+library(MASS)
+
+MotifHits_pdb<-MotifHits %>% filter(!is.na(mean_pLDDT))
+MotifHits_pdb<-MotifHits %>% filter(!is.na(mean_acc))
+
+den3d <- kde2d(MotifHits_pdb$Motif_Disorder, MotifHits_pdb$mean_pLDDT)
+plot_ly(x=den3d$y, y=den3d$x, z=den3d$z) %>% add_surface() %>%
+  layout(title = 'Disorder vs AF2 scores', scene = list(xaxis = list(title = "mean pLDDT"),yaxis = list(title = "IUPRED score"),zaxis = list(title = "Density") ))
+
+den3d <- kde2d(MotifHits_pdb$mean_acc,MotifHits_pdb$Motif_Disorder)
+plot_ly(x=den3d$y, y=den3d$x, z=den3d$z) %>% add_surface() %>%
+  layout(title = 'Disorder vs DSSP scores',scene = list(xaxis = list(title = "IUPRED score"),yaxis = list(title = "mean accessibility"),zaxis = list(title = "Density") ))
+
+den3d <- kde2d(MotifHits_pdb$mean_acc,MotifHits_pdb$mean_pLDDT)
+plot_ly(x=den3d$y, y=den3d$x, z=den3d$z) %>% add_surface() %>%
+  layout(title = 'AF2 vs DSSP scores',scene = list(xaxis = list(title = "mean pLDDT"),yaxis = list(title = "mean accessibility"),zaxis = list(title = "Density") ))
+
+
+```
+```{r Struct_3, echo=FALSE}
+
+Motif_acc <- as.integer(MotifHits$mean_pLDDT<50)*as.integer(MotifHits$mean_acc>0.36)
+MotifHits$Motif_acc <- sapply(Motif_acc, function(x) if(is.na(x)){NA}else if(x){"yes"} else{'no'}) 
+
+ggplot(MotifHits, aes(x=Motif_Disorder, col=Motif_acc)) +  geom_density() + geom_vline(xintercept=0.4, col="red", size=0.25) +
+  ggtitle("Motif disorder scores by Accesibility ") +  xlab("IUPRED2 score") + ylab("Density") + 
+  scale_color_manual(values=c("grey","#18974C")) + theme_classic() +
+  theme(axis.text=element_text(size=12),axis.title=element_text(size=12,face="bold"))
+
+MotifHits$Motif_acc <- MotifHits$mean_acc/(MotifHits$mean_pLDDT/100)
+#plot(MotifHits$Motif_acc,MotifHits$Motif_Disorder)
+
+MotifHits_na <- MotifHits[!is.na(MotifHits$Motif_acc),]
+den3d <- kde2d(MotifHits_na$Motif_acc,MotifHits_na$Motif_Disorder)
+plot_ly(x=den3d$y, y=den3d$x, z=den3d$z) %>% add_surface() %>%
+  layout(title = 'Disorder and accessibility',scene = list(xaxis = list(title = "IUPRED2"),yaxis = list(title = "accessibility/(pLDDT*0.01)"),zaxis = list(title = "Density") ))
+
+thrs_AC <- thrs_acc/(thrs_pLDDT*0.01)
+
+ggplot(MotifHits, aes(x=Motif_acc, col=Dis_context)) +  geom_density() +
+  ggtitle("Motif Acessibility scores by Disorder context") +  xlab("Acc/(pLDDT*0.01)") + ylab("Density") + 
+  geom_vline(xintercept=thrs_AC, col="red", size=0.5) +
+  scale_color_manual(values=c("#18974C","grey")) + theme_classic() +
+  theme(axis.text=element_text(size=12),axis.title=element_text(size=12,face="bold")) 
+
+ggplot(MotifHits[MotifHits$Dis_context=="disorder",], aes(x=Motif_acc, col=Motif_Type)) +  geom_density() +
+  ggtitle("Motif in Disorder Context Acessibility scores by Motif type ") +  xlab("Acc/(pLDDT*0.01)") + ylab("Density") + 
+  geom_vline(xintercept=thrs_AC, col="red", size=0.5) +
+  scale_color_manual(values=c("#734595","#A1BE1F","#F49E17","#3B6FB6","#D41645","#F4C61F")) + theme_classic() +
+  theme(axis.text=element_text(size=12),axis.title=element_text(size=12,face="bold"))
+
+ggplot(MotifHits[MotifHits$Dis_context=="order",], aes(x=Motif_acc, col=Motif_Type)) +  geom_density() +
+  ggtitle("Motif in Disorder Context Acessibility scores by Motif type ") +  xlab("Acc/(pLDDT*0.01)") + ylab("Density") + 
+  geom_vline(xintercept=thrs_AC, col="red", size=0.5) +
+  scale_color_manual(values=c("#734595","#A1BE1F","#F49E17","#3B6FB6","#D41645","#F4C61F")) + theme_classic() +
+  theme(axis.text=element_text(size=12),axis.title=element_text(size=12,face="bold"))
+
+
+```
+
+
+```{r Conservation , echo=FALSE}
+library(ggplot2)
+library(gridExtra)
+
+spc <- ggplot(MotifHits, aes(x=presence_spc)) +  geom_bar() +
+  ggtitle("Species presence") +  xlab("Proportion") + ylab("Matches count") + theme_classic() +
+  theme(axis.text=element_text(size=12),axis.title=element_text(size=12,face="bold"))
+str <- ggplot(MotifHits, aes(x=presence_str)) +  geom_bar() +
+  ggtitle("Strains presence") +  xlab("Proportion") + ylab("Matches count") + theme_classic() +
+  theme(axis.text=element_text(size=12),axis.title=element_text(size=12,face="bold"))
+grid.arrange(spc, str, nrow=2)
+ 
+spc <- ggplot(MotifHits, aes(x=presence_spc, fill=Dis_context)) +  geom_bar(position="fill") +
+  ggtitle("Species presence by disorder context") +  xlab("Proportion") + ylab("Matches percentage") + 
+  scale_fill_manual(values=c("grey","#18974C")) + theme_classic() +
+  theme(axis.text=element_text(size=12),axis.title=element_text(size=12,face="bold"))
+str <- ggplot(MotifHits, aes(x=presence_str, fill=Dis_context)) +  geom_bar(position="fill") +
+  ggtitle("Strains presence by disorder context") +  xlab("Proportion") + ylab("Matches percentage") + 
+  scale_fill_manual(values=c("grey","#18974C")) + theme_classic() +
+  theme(axis.text=element_text(size=12),axis.title=element_text(size=12,face="bold"))
+grid.arrange(spc, str, nrow=2)
+
+
+MotifHits$Acc_context <- sapply(MotifHits$Motif_acc, function(x) if(is.na(x)){NA}else if(x>thrs_AC){"high"} else{'low'}) 
+
+spc <- ggplot(MotifHits, aes(x=presence_spc, fill=Acc_context)) +  geom_bar(position="fill") +
+  ggtitle("Species presence by Acessibility confidence") +  xlab("Proportion") + ylab("Matches percentage") + 
+  scale_fill_manual(values=c("grey","#18974C")) + theme_classic() +
+  theme(axis.text=element_text(size=12),axis.title=element_text(size=12,face="bold"))
+str <- ggplot(MotifHits, aes(x=presence_str, fill=Acc_context)) +  geom_bar(position="fill") +
+  ggtitle("Strains presence by Acessibility confidence") +  xlab("Proportion") + ylab("Matches percentage") + 
+  scale_fill_manual(values=c("grey","#18974C")) + theme_classic() +
+  theme(axis.text=element_text(size=12),axis.title=element_text(size=12,face="bold"))
+grid.arrange(spc, str, nrow=2)
+
+
+spc <- ggplot(MotifHits[MotifHits$Dis_context=="disorder",], aes(x=presence_spc, fill=Motif_Type)) +  geom_bar(position="fill") +
+  ggtitle("Species presence by Motif Type ") +  xlab("Proportion") + ylab("Matches percentage") + 
+  scale_fill_manual(values=c("#734595","#A1BE1F","#F49E17","#3B6FB6","#D41645","#F4C61F")) + theme_classic() +
+  theme(axis.text=element_text(size=12),axis.title=element_text(size=12,face="bold"))
+str <- ggplot(MotifHits[MotifHits$Dis_context=="disorder",], aes(x=presence_str, fill=Motif_Type)) +  geom_bar(position="fill") +
+  ggtitle("Strains presence by Motif Type ") +  xlab("Proportion") + ylab("Matches percentage") + 
+  scale_fill_manual(values=c("#734595","#A1BE1F","#F49E17","#3B6FB6","#D41645","#F4C61F")) + theme_classic() +
+  theme(axis.text=element_text(size=12),axis.title=element_text(size=12,face="bold"))
+grid.arrange(spc, str, nrow=2)
+
+spc <- ggplot(MotifHits[MotifHits$Dis_context=="disorder",], aes(x=presence_spc, fill=SecEvd)) +  geom_bar(position="fill") +
+  ggtitle("Species presence by Secretion") +  xlab("Proportion") + ylab("Matches percentage") + 
+  scale_fill_manual(values=c("grey","#18974C")) + theme_classic() +
+  theme(axis.text=element_text(size=12),axis.title=element_text(size=12,face="bold"))
+str <- ggplot(MotifHits[MotifHits$Dis_context=="disorder",], aes(x=presence_str, fill=SecEvd)) +  geom_bar(position="fill") +
+  ggtitle("Strains presence by Secretion") +  xlab("Proportion") + ylab("Matches percentage") + 
+  scale_fill_manual(values=c("grey","#18974C")) + theme_classic()+
+  theme(axis.text=element_text(size=12),axis.title=element_text(size=12,face="bold"))
+grid.arrange(spc, str, nrow=2)
+
+```
+
+```{r Domains}
+
+ggplot(MotifHits, aes(x=Motif_Disorder, col=as.factor(doms_num)))+  geom_density() +
+  ggtitle("Motif in Disorder by Domain") +  xlab("IUPRED score") + ylab("Density") +
+  geom_vline(xintercept=0.4, col="red", size=0.4) + theme_classic()
+
+ggplot(MotifHits, aes(x=Motif_Disorder, fill=as.factor(doms_num)))+  geom_histogram() +
+  ggtitle("Motif in Disorder by Domain") +  xlab("IUPRED score") + ylab("Density") +
+  geom_vline(xintercept=0.4, col="red", size=0.4) + theme_classic()
+
+
+ggplot(MotifHits[!is.na(MotifHits$Organelle),], aes(x=Organelle, fill=as.factor(doms_num))) +  geom_bar(position="fill")+ theme_classic()
+
+
+```
+
+```{r upset plot}
+library(UpSetR)
+
+A <- MotifHits[MotifHits$Motif_Disorder>0.4, 9] 
+B <- MotifHits[MotifHits$doms_num==0, 9] 
+C <- MotifHits[MotifHits$presence_str>0.7 & MotifHits$presence_spc>0.2, 9] 
+D <- MotifHits[MotifHits$Motif_acc>0.8, 9]  
+
+AB <- intersect(A, B)
+AC <- intersect(A, C)
+AD <- intersect(A, D)
+BC <- intersect(B, C)
+BD <- intersect(B, D)
+CD <- intersect(C, D)
+
+ABC <- intersect(intersect(A, B),C)
+ABD <- intersect(intersect(A, B),D)
+ACD <- intersect(intersect(A, C),D)
+BCD <- intersect(intersect(B, C),D)
+
+input <- c(
+  IUPRED = nrow(setdiff(setdiff(setdiff(A, AB), AC), AD)),
+  OutDomain = nrow(setdiff(setdiff(setdiff(B, AB), BC), BD)),
+  Conservation = nrow(setdiff(setdiff(setdiff(C, AC), BC), CD)),
+  Accessibility = nrow(setdiff(setdiff(setdiff(D, AD), BD), CD)),
+  "IUPRED&OutDomain" = nrow(setdiff(setdiff(AB, AC), AD)),
+  "IUPRED&Conservation" = nrow(setdiff(setdiff(AC, AB), AD)),
+  "IUPRED&Accessibility" = nrow(setdiff(setdiff(AD, AB), AC)),
+  "OutDomain&Conservation" = nrow(setdiff(setdiff(BC, AB), BD)),
+  "OutDomain&Accessibility" = nrow(setdiff(setdiff(BD, AB), BC)),
+  "Conservation&Accessibility" = nrow(setdiff(setdiff(CD, AC), BC)),
+  "IUPRED&OutDomain&Conservation" = nrow(setdiff(ABC, CD)),
+  "IUPRED&OutDomain&Accessibility" = nrow(setdiff(ABD, BC)),
+  "IUPRED&Conservation&Accessibility" = nrow(setdiff(ACD, AB)),
+  "OutDomain&Conservation&Accessibility" = nrow(setdiff(BCD, AD)),
+  "IUPRED&OutDomain&Conservation&Accessibility" = nrow(intersect(intersect(intersect(A, B),C),D))
+)
+
+rm(A,B,C,D,AB,AC,AD,BC,BD,CD,ABC,ABD,ACD,BCD)
+
+upset(fromExpression(input), 
+      nintersects = 40, 
+      nsets = 4, 
+      order.by = "freq", 
+      decreasing = T, 
+      mb.ratio = c(0.6, 0.4),
+      number.angles = 0, 
+      text.scale = 2, 
+      point.size = 2.8, 
+      line.size = 1
+      )
+```
+
+
+```{r filters}
+MotifHits_filt <- MotifHits %>% filter(Motif_Disorder>=0.4 & (is.na(mean_pLDDT) | Motif_acc>1.2) & presence_str>0.7 & presence_spc>0.2 & MotifHits$doms_num==0)
+
+#MotifHits_filt %>% filter(mean_acc<0.36 | mean_pLDDT>50) #take these out
+#MotifHits_filt %>% filter(mean_acc<0.36 & mean_pLDDT>50)
+
+```
+```{r Location Evidence, echo=FALSE}
+ggplot(MotifHits_filt[!is.na(MotifHits_filt$Organelle),], aes(x=Organelle, fill=SecEvd)) +  geom_bar() +
+  ggtitle("Subcellular Location") +  xlab("Location") + ylab("Matches count") + 
+  scale_fill_manual(values=c("grey","#18974C")) + theme_classic() + theme(axis.text.x = element_text(angle = -45, vjust = 0.5, hjust=0.1)) +
+  theme(axis.text=element_text(size=8),axis.title=element_text(size=12,face="bold"))
+
+# ggplot(MotifHits[!is.na(MotifHits$Organelle) ,], aes(x=Organelle,  col=SecEvd, fill=Dis_context)) +  geom_bar(position="fill") +
+#   ggtitle("Subcellular Location by Disorder Context") +  xlab("Location") + ylab("Matches proportion") + 
+#   scale_fill_manual(values=c("grey","#18974C")) + scale_color_manual(values=c("grey","black")) + 
+#   theme_classic() + theme(axis.text.x = element_text(angle = -45, vjust = 0.5, hjust=0.1)) +
+#   theme(axis.text=element_text(size=8),axis.title=element_text(size=12,face="bold"))
+
+ggplot(MotifHits_filt[!is.na(MotifHits_filt$Organelle) ,], aes(x=Organelle,  col=SecEvd, fill=Motif_Type)) +  geom_bar(position="fill") +
+  ggtitle("Subcellular Location by Motif Type") +  xlab("Location") + ylab("Matches proportion") + 
+  scale_fill_manual(values=c("#734595","#A1BE1F","#F49E17","#3B6FB6","#D41645","#F4C61F")) + scale_color_manual(values=c("grey","black")) + 
+  theme_classic() + theme(axis.text.x = element_text(angle = -45, vjust = 0.5, hjust=0.1)) +
+  theme(axis.text=element_text(size=8),axis.title=element_text(size=12,face="bold"))
+
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
