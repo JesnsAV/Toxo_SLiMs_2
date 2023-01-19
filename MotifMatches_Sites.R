@@ -10,9 +10,6 @@ if (length(args)==0) {
 library(tidyverse)
 library(gridExtra)
 
-#Define working directory
-#setwd("/Users/JAVlvrd/Documents/Toxoplasma-2022/ToxoMotifs/Results/")
-
 #Read MotifMatches_Dis.py results table
 #input <- 'MotifMatches_list.txt'
 input1 <- args[1]

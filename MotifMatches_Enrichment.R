@@ -11,21 +11,12 @@ library(tidyverse)
 library(gridExtra)
 
 #Define working directory
-setwd("/Users/JAVlvrd/Documents/Toxoplasma-2022/ToxoMotifs/Results/")
 
 #Alias for reading further files
 input1<- args[1]
-# input2<- args[2]
-# input3<- args[3]
-# input4<- args[4]
-#input1 <- "ELM_test"
-#input1 <- "ELM_Sep22"
 
 #Motif Matches file processing for data integration
-#input1 <- args[1]
-#input1 <- "/Users/JAVlvrd/Documents/Toxoplasma-2022/ToxoMotifs/Results/ELM_Sep22_MotifMatches_list.txt"
 matches_file <- paste(input1,"_MotifMatches_list.txt",sep="")
-#matches_file <- input1
 motif_list<- read_tsv(matches_file)
 motif_list$seq_id<-gsub("-t26_1-p1","",motif_list$Protein_ID ) #Define common sequence ID key for further data integration
 motif_list$key <- paste(motif_list$seq_id,motif_list$Motif_Name,motif_list$Match_N,sep="|") #key should be a combination of sequence ID, motif name and motif instance
@@ -34,7 +25,6 @@ motif_list$Motif_Type <- substr(motif_list$Motif_Name,1,3)
 ##### Add MSA scores ####
 #Read conservation presence file and combine it with Motif list
 cons_file <- paste(input1,"_MotifMatches_presence.txt",sep="")
-#cons_file <- input2
 cons_table <- read_tsv(cons_file,col_names =T)
 cons_table <- select(cons_table, -c(2:4))
 rm(cons_file)
@@ -47,7 +37,7 @@ MotifHits$ExpEvd <- sapply(MotifHits$presence_org,function(x) if(is.na(x)){'no'}
 
 ##### Add LOPIT locations ####
 #Read  LOPIT location  table
-Tgondii_LOPIT <- read_tsv(file = '/Users/JAVlvrd/Documents/Toxoplasma-2021/AminoAcidComposition/RefTables/TgME49_LOPIT_MS_evidence.txt') 
+Tgondii_LOPIT <- read_tsv(file = '/TgME49_LOPIT_MS_evidence.txt') #ToxoDB information
 #TAGM-MAP (default probability) > 0.4 % 07.06.22 MassSpecEv Peptides>=1
 Tgondii_LOPIT <- Tgondii_LOPIT %>% rename(seq_id = Gene_ID) 
 Tgondii_LOPIT <- select(Tgondii_LOPIT, -c(2,6:7))
@@ -65,7 +55,7 @@ MotifHits$Organelle <- gsub("^[0-9][0-9]S_","",MotifHits$Organelle)
 
 #### Add Bradyzoite info ######
 #https://doi.org/10.1371/journal.pone.0232552
-brad <- read_tsv("/Users/JAVlvrd/Documents/Toxoplasma-2021/Motif_Enrichments/Nadipuram2020_GRAnames.txt")
+brad <- read_tsv("/Nadipuram2020_GRAnames.txt")
 tach <- MotifHits %>% filter(Organelle=="dense_granules") %>% select(seq_id) %>% unique()
 temp <- intersect(tach$seq_id, brad$ToxoDB)
 temp <- setdiff(brad$ToxoDB,tach$seq_id)
@@ -101,7 +91,6 @@ rm(bradMotifs, brad, tach)
 #### Add phospho site info ####
 ##Collected from ToxoDB from PMID: 30850550, PMID: 21980283, PMID: 22018241
 mods_file <- paste(input1,"_MotifMatches_mods.txt",sep="")
-#mods_file <- input3
 mods_table <-read_tsv(mods_file,col_names =T)
 rm(mods_file)
 
@@ -110,17 +99,14 @@ rm(mods_table)
 
 #### Add domain info ####
 dom_file <- paste(input1,"_MotifMatches_doms.txt",sep="")
-#mods_file <- input3
 doms_table <-read_tsv(dom_file,col_names =T)
 rm(dom_file)
-
 MotifHits <-  left_join(MotifHits,doms_table, by = "key")
 rm(doms_table)
 
 
 #### Add AlphaFold values ####
 af_file <- paste(input1,"_MotifMatches_AF_extension.txt",sep="")
-#af_file <- input4
 af_table <- read_tsv(file=af_file, col_names = F)
 colnames(af_table)<- c('key','mean_pLDDT_a','mean_acc_a')
 af_table$mean_pLDDT_a<-as.numeric(af_table$mean_pLDDT_a)
@@ -132,7 +118,6 @@ MotifHits <- left_join(MotifHits,af_table, by="key")
 rm(af_table)
 
 af_file <- paste(input1,"_MotifMatches_AF_extension2.txt",sep="")
-#af_file <- input4
 af_table <- read_tsv(file=af_file, col_names = F)
 colnames(af_table)<- c('key','mean_pLDDT_b','mean_acc_b')
 af_table$mean_pLDDT_b<-as.numeric(af_table$mean_pLDDT_b)
@@ -142,12 +127,6 @@ af_table <- af_table %>% filter(!is.na(mean_pLDDT_b))
 
 MotifHits <- left_join(MotifHits,af_table, by="key")
 rm(af_table)
-
-# #### Add ToxoDB descriptions ####
-# descriptions <- read_tsv("/Users/JAVlvrd/Documents/Toxoplasma-2021/Motif_Enrichments/result_Files/elm_classes_11.2021_filt_ToxoDB_descriptions.txt",col_names = F)
-# descriptions <- select(descriptions, X1,X3)
-# colnames(descriptions)<-c("seq_id","description")
-# MotifHits <- left_join(MotifHits, descriptions, by="seq_id")
 
 #### Save data #####
 write_tsv(MotifHits, file=paste(input1,"_MotifMatches_complete.txt",sep=""),col_names = T)
