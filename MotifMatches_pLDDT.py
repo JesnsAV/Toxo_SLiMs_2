@@ -19,11 +19,11 @@ import os
 
 parser=argparse.ArgumentParser()
 parser.add_argument("input_list",
-                    help="Table with the list of motif matches ") #receive file of signalP results
+                    help="Table with the list of motif matches ") #receive file of motif matches
 parser.add_argument("AF_values",
-                    help="Table with pLDDT alphafold values") #receive proteome path 
+                    help="Table with pLDDT alphafold values") #receive table with pLDDT values 
 parser.add_argument("DSSP_values",
-                    help="Table with accessibility DSSP  values ") #receive proteome path 
+                    help="Table with accessibility DSSP  values ") #receive table with DSSP acccesibility values 
 args = parser.parse_args()
 
 #sample command
@@ -42,7 +42,6 @@ import sys
 import pandas as pd
 
 plddt_file = args.AF_values
-#plddt_file = '/Users/JAVlvrd/Documents/Toxoplasma-2022/ToxoMotifs/Data/TgondiiME49_AF_plddt_values.txt'
 plddt_table = pd.read_table(plddt_file)
 plddt_list_raw = plddt_table.set_index('AF_ID').transpose().to_dict('list') #put the datafram in dictionary (of lists) format
 plddt_list = {}
@@ -58,7 +57,6 @@ del plddt_file, plddt_table
 
 
 access_file = args.DSSP_values
-#access_file = '/Users/JAVlvrd/Documents/Toxoplasma-2022/ToxoMotifs/Data/TgondiiME49_AF_dssp_values.txt'
 access_table = pd.read_table(access_file)
 access_list_raw = access_table.set_index('AF_ID').transpose().to_dict('list') #put the datafram in dictionary (of lists) format
 access_list = {}
@@ -78,7 +76,7 @@ Get ToxoDB ids
 '''
 ToxoDB_ID = {}
 
-ToxoIDs = "/Users/JAVlvrd/Documents/Toxoplasma-2022/AlphaFold/AlphaFoldDB_Structures/uniprot-compressed_true_download_true_format_tsv-2022.07.29-13.13.55.06.tsv"
+ToxoIDs = "uniprot-compressed_true_download_true_format_tsv-2022.07.29-13.13.55.06.tsv" #UP - ToxoDB id mappings
 ToxoDB_ID_table = open(ToxoIDs, 'r') #open up file
 del ToxoIDs
 
@@ -97,7 +95,6 @@ del ToxoDB_ID['To']
 Get Motif Table
 '''
 Motif_file = args.input_list
-#Motif_file = "/Users/JAVlvrd/Documents/Toxoplasma-2022/ToxoMotifs/Results/ELM_Sep22_MotifMatches_list.txt"
 Motif_table = pd.read_table(Motif_file)
 Motif_dict = Motif_table.transpose().to_dict('list') #put the datafram in dictionary (of lists) format
 del Motif_table
@@ -129,8 +126,6 @@ for key in list(Motif_dict.keys()):
           
     motif_plddt_scr = np.mean(motif_plddt_val)
     motif_acc_scr = np.mean(motif_acc_val)
-    #print(key,seq_id,motif_score)
-    #print(key)
     Motif_dict[key].append(motif_plddt_scr)
     Motif_dict[key].append(motif_acc_scr)
     
@@ -142,8 +137,7 @@ del motif_st, motif_ln,motif_plddt_val,motif_acc_val, motif_plddt_scr, motif_acc
 Save extended Motif Table
 '''
 
-os.chdir(out_dir) #choose directory to save table
-#out_file = open(args.input_proteome+"_Disorder.txt", "w") #name of the table
+os.chdir(out_dir) 
 out_name = re.sub("_list.txt", "", args.input_list)
 out_file = open(out_name+"_AF_extension.txt", "w") #name of the table
 for key in list(Motif_dict.keys()):

@@ -23,18 +23,18 @@ import re
 
 parser=argparse.ArgumentParser()
 parser.add_argument("input_list",
-                    help="path to the motif match list") #receive file of signalP results
+                    help="path to the motif match list") #receive list of motif matches
 parser.add_argument("input_PTMs",
-                    help="path to a PTM table file with protein ID, aa and residue number") #receive file of signalP results
+                    help="path to a PTM table file with protein ID, aa and residue number") #receive a file with PTM information
 args = parser.parse_args()
 
 
 #python MotifsInAlignments.py input_ELMs input_sites
 #sample command
-    #
+    #Python MotifMatches_PTMs.py ALIAS_MotifMatches_list.txt TgondiiME49_Phosphosites.tab
 
 #outputs:
-    #
+    #ELM_Sep22_MotifMatches_mods.txt
 
 
 out_dir = os.getcwd()
@@ -45,7 +45,6 @@ Load Motif match lists
 '''
 
 MotifMatches = args.input_list
-#MotifMatches = '/Users/JAVlvrd/Documents/Toxoplasma-2022/ToxoMotifs/Results/ELM_Sep22_MotifMatches_list.txt'
 MotifMatches_table = pd.read_table(MotifMatches)
 MotifMatches_list = MotifMatches_table.transpose().to_dict('list') #put the datafram in dictionary (of lists) format
 del MotifMatches, MotifMatches_table
@@ -63,7 +62,6 @@ Load PTM info
 '''
 
 PTMs_file = args.input_PTMs
-#PTMs_file = '/Users/JAVlvrd/Documents/Toxoplasma-2021/Motif_Enrichments/ME49_Phosphosites_130622.txt_byModification.tab'
 PTMs_table = pd.read_table(PTMs_file)
 PTMs_table.columns = PTMs_table.columns.str.replace(" ","") 
 del PTMs_file

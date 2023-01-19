@@ -21,7 +21,7 @@ PATH OF PROTEOME
 
 parser=argparse.ArgumentParser()
 parser.add_argument("input_ELMs",
-                    help="path to a motif table file with names and REGEX") #receive file of signalP results
+                    help="path to a motif table file with names and REGEX") #receive file of motif models
 parser.add_argument("input_sites",
                     help="path to a motif match site table file with protein IDs and Motif sites") #receive file of signalP results
 args = parser.parse_args()
@@ -47,7 +47,6 @@ Load ELM models
 '''
 
 ELMs = args.input_ELMs #Table with target ELM models
-#ELMs = '/Users/JAVlvrd/Documents/Toxoplasma-2022/ToxoMotifs/Data/elm_classes_Dec22.tsv'
 ELM_table = open(ELMs, 'r') #open up file
 del ELMs
 
@@ -71,7 +70,6 @@ Load motif matches info
 
 '''
 MotifMatches_sites = args.input_sites
-#MotifMatches_sites = '/Users/JAVlvrd/Documents/Toxoplasma-2022/ToxoMotifs/Results/ELM_Dec22/ELM_Dec22_MotifMatches_sites_tests.txt'
 MotifMatches_sites_table = pd.read_table(MotifMatches_sites)
 MotifMatches_sites_table = MotifMatches_sites_table[MotifMatches_sites_table['Match_N']==1]
 MotifMatches_sites_list = MotifMatches_sites_table.transpose().to_dict('list') #put the datafram in dictionary (of lists) format
@@ -86,7 +84,7 @@ for key in  list(MotifMatches_sites_list.keys()):
 Read Alignments and get motif matches positions
 '''
 
-os.chdir('/Users/JAVlvrd/Documents/Toxoplasma-2021/Motif_Enrichments/Fastas/MassSpec_genes')
+os.chdir('/Fastas/MassSpec_genes') #directory of all alignments
 
 Aln_groups={}
 
@@ -164,19 +162,6 @@ for group in  list(MotifMatches_sites_list.keys()):
 del group, motif, aln_name, aln_txt,subject_keys, info_subjects, aln_group
 
 
-# for group in  list(MotifMatches_sites_list.keys()):
-#     ID = MotifMatches_sites_list[group][0] #TGME49_254720-t26_1-p1
-#     ID = re.sub("-t26_1-p1", "", ID)
-#     motif=MotifMatches_sites_list[group][1]
-#     key = ID+"|"+motif
-
-#     if motif == "PTAP":
-#         print(MotifMatches_sites_list[group])
-#         for seq in list(Aln_groups[key].keys()):
-#             print(group,key, seq, Aln_groups[key][seq])
-#         print("\n")
-# del group
-
 
 DisOrgComp_cons = {}
 motif_window = 15
@@ -204,24 +189,16 @@ for group in  list(MotifMatches_sites_list.keys()):
     del site
 
     guide_index = list(Aln_groups[key][ID+'-t26_1-p1'][x] for x in true_index)
-    #print(MotifMatches_sites_list[group], true_index,guide_index, "\n")
 
     ind_seq = 0
-    #print(ind_seq)
     for ind in guide_index:
         seq_n = 0
         strains_n = 0
         species_n = 0
         interval = range(ind-motif_window, ind+motif_window)
-
-        #ind_group = {k: value for k, value in Aln_groups[key].items() if ind in value} #this took away matches that were not starting at the same position
-        ind_group = Aln_groups[key]
-        #del ind_group[list(Aln_groups[key].keys())[0]]
-        #ind_seq = MotifMatches_sites_list[group][2][guide_index.index(ind)]
         
-        #ind_seq = MotifMatches_sites_list[group][2]
+        ind_group = Aln_groups[key]  
         ind_seq += 1
-        #print(ind_seq)
         
         ind_keys =list(ind_group.keys())
         
@@ -230,13 +207,12 @@ for group in  list(MotifMatches_sites_list.keys()):
             #if ind in ind_group[seq]:
             if bool(set(interval) & set(ind_group[seq])):  #here should be a more flexible criterium of motif position
                 org = seq.split("_")[0]
-                #print(org)
                 if org in strains:
                     strains_n += 1
                 elif org in species:
                     species_n += 1
                 else:
-                    if 'PFH' in org:
+                    if 'PFH' in org: #as the Besnoitia proteome is not well documented
                         species_n += 1
 
                 seq_n += 1
@@ -245,7 +221,6 @@ for group in  list(MotifMatches_sites_list.keys()):
         cons_st = strains_n/4
         cons_sp = species_n/4
         cons_org = (seq_n)/8
-        #print(key, ind,cons_org,cons_st,cons_sp)
         DisOrgComp_cons[key+"|"+str(ind_seq)] = [cons_org,cons_st,cons_sp] #correct index to position    
         
         del seq, org, interval
@@ -254,10 +229,6 @@ for group in  list(MotifMatches_sites_list.keys()):
 del true_motifs, all_motifs, true_index,guide_index,group
 del ID, motif, key
 
-
-
-#species_t = motif_sp_n / species_n
-#species_r = motif_sp_n / species_n
 
 
 '''

@@ -23,18 +23,18 @@ parser=argparse.ArgumentParser()
 parser.add_argument("input_list",
                     help="path to the motif match list") #receive file of motif
 parser.add_argument("input_Domains",
-                    help="path to a Domain table from Uniprot with protein ID, domain and residue numbers") #receive file of signalP results
+                    help="path to a Domain table from Uniprot with protein ID, domain and residue numbers") #receive file of dopmain mapping file
 parser.add_argument("input_mappings",
-                    help="path to an ID mapping table between Uniprot and ToxoDB") #receive file of signalP results
+                    help="path to an ID mapping table between Uniprot and ToxoDB") #ID mappings
 args = parser.parse_args()
 
 
 #python MotifsInAlignments.py input_ELMs input_sites
 #sample command
-    #
+    #Python MotifMatches_Domains.py ALIAS_MotifMatches_list.txt TgondiiME49_DomainMappings.tsv
 
 #outputs:
-    #
+    #ELM_Sep22_MotifMatches_doms.txt
 
 
 out_dir = os.getcwd()
@@ -45,21 +45,12 @@ Load Motif match lists
 '''
 
 MotifMatches = args.input_list
-#MotifMatches = '/Users/JAVlvrd/Documents/Toxoplasma-2022/ToxoMotifs/Results/ELM_Sep22_MotifMatches_list.txt'
-MotifMatches = '/Users/JAVlvrd/Documents/Toxoplasma-2022/ToxoMotifs/Results/ELM_Dec22/ELM_Dec22_MotifMatches_list.txt'
 MotifMatches_table = pd.read_table(MotifMatches)
 MotifMatches_table['seq_id'] = MotifMatches_table['Protein_ID'].str.replace("-t26_1-p1","")
 MotifMatches_table['Motif_eSite'] = MotifMatches_table['Motif_sSite'] + MotifMatches_table['Motif_Instance'].apply(len)
-#MotifMatches_table['key'] = MotifMatches_table['seq_id'] + "|" + MotifMatches_table['Motif_Name'] + "|"  + MotifMatches_table['Match_N'].to_string()
 MotifMatches_table['key'] = MotifMatches_table['seq_id'] + "|" + MotifMatches_table['Motif_Name'] + "|"  + MotifMatches_table['Match_N'].astype(str)
-#MotifMatches_list = MotifMatches_table.transpose().to_dict('list') #put the datafram in dictionary (of lists) format
 del MotifMatches
 
-
-# for key in  list(MotifMatches_list.keys()):    
-#     seq_id = ID = re.sub("-t26_1-p1", "", MotifMatches_list[key][0])
-#     MotifMatches_list[key].append(seq_id)
-# del seq_id, key
 
 
 '''
@@ -68,7 +59,6 @@ Load Domain info
 '''
 
 DOMs_file = args.input_Domains
-#DOMs_file = '/Users/JAVlvrd/Documents/Toxoplasma-2022/ToxoMotifs/Data/uniprot-dom-2022.11.18-12.00.54.21.tsv'
 DOMs_table = pd.read_table(DOMs_file)
 DOMs_table.columns = DOMs_table.columns.str.replace(" ","") 
 del DOMs_file
@@ -80,7 +70,6 @@ Load mapping info
 '''
 
 MAPs_file = args.input_mappings
-#MAPs_file = '/Users/JAVlvrd/Documents/Toxoplasma-2022/ToxoMotifs/Data/uniprot-mapp-2022.07.29-13.13.55.06.tsv'
 MAPs_table = pd.read_table(MAPs_file)
 MAPs_table.columns = MAPs_table.columns.str.replace(" ","") 
 del MAPs_file
@@ -120,12 +109,12 @@ for dom in list(DOMs.keys()):
             motif_doms = prot_motifs.loc[ (prot_motifs['Motif_sSite'] > int(pos_doms[0])) & (prot_motifs['Motif_eSite'] < int(pos_doms[1])) ]
             MotifMatches_table.iloc[motif_doms.index,[10]] += 1
             MotifMatches_table.iloc[motif_doms.index,[11]] = MotifMatches_table.iloc[motif_doms.index,[11]] + name_doms
-#     del i
+    del i
  
-# del prot_motifs, doms, info_doms, pos_doms, name_doms,motif_doms
-# del dom
+del prot_motifs, doms, info_doms, pos_doms, name_doms,motif_doms
+del dom
 
-# del DOMs
+del DOMs
 
 '''
 Save PTM-motif list in a text file

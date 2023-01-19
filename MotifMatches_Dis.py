@@ -20,7 +20,7 @@ import argparse
 
 parser=argparse.ArgumentParser()
 parser.add_argument("data_alias",
-                    help="Name alias for result files") #receive proteome path
+                    help="Name alias for result files") #receive ALIAS
 parser.add_argument("input_proteome",
                     help="Path to a proteome file") #receive proteome path
 parser.add_argument("input_ELMs",
@@ -30,7 +30,7 @@ parser.add_argument("input_IUP_thrs",
 args = parser.parse_args()
 
 #sample command
-#python ../Software/MotifMatches_Dis.py 'ELM_Sep22' ../Data/ToxoDB-42_TgondiiME49_AnnotatedProteins.fasta ../Data/elm_classes_200922.tsv 0.4
+#python ../Software/MotifMatches_Dis.py 'ALIAS' ../Data/ToxoDB-42_TgondiiME49_AnnotatedProteins.fasta ../Data/elm_classes_200922.tsv 0.4
 
 #outputs:
     #ALIAS_MotifMatches_list.txt #motif matches in a list
@@ -42,8 +42,7 @@ Information store include gene name, seq length and sequence
 '''
 print("Reading proteome...")
 
-Proteome = args.input_proteome #Proteome to analyse, from the fasta file provided by user
-#Proteome = '/Users/JAVlvrd/Documents/Toxoplasma-2021/Motif_Enrichments/ToxoDB-42_TgondiiME49_AnnotatedProteins.fasta'
+Proteome = args.input_proteome 
 proteome_file = open(Proteome, 'r') #open up file
 info_proteins = {}
 
@@ -77,8 +76,7 @@ Upload ELM models
 '''
 print("Loading ELM models...")
 
-ELMs = args.input_ELMs #Table with target ELM models
-#ELMs = '/Users/JAVlvrd/Documents/Toxoplasma-2021/Motif_Enrichments/sample_ELMs.txt'
+ELMs = args.input_ELMs 
 ELM_table = open(ELMs, 'r') #open up file
 ELM_models = {}
 
@@ -106,7 +104,7 @@ import os
 import numpy as np
 import sys
 
-sys.path.insert(1, '/Users/JAVlvrd/Documents/Toxoplasma-2019/Toxo_Proteomes')
+sys.path.insert(1, '/Toxo_Proteomes') #path to python software
 from iupred2a_folder.iupred2a import *
 
 proteins_dis={} #create list that will contain all vectores with disorder values
@@ -140,7 +138,6 @@ match_id=0 #ID in case there a proteins with matches with more than one motif
 for motif_n in ELM_keys:#for each ELM motif
     for ID in keys: #for every protein in the SP_ProteinList dict
         motif_m = 0 #counter to know the number of matches
-        #print(ELM_models[motif_n][0])
         for m in re.finditer(ELM_models[motif_n][0], info_proteins[ID][2]):
             #print(motif_n)
             try:
@@ -158,10 +155,7 @@ for motif_n in ELM_keys:#for each ELM motif
             else:
                 motif_c = "order"
             
-            ###There might be some mismatch with the indexes and the real start
-
             proteins_motifs[match_id] = [ID,motif_n, motif_m+1, motif_i ,motif_s,motif_d, motif_c] #save motif info: protein ID, name, match number, instance, start, average disorder
-            #print(proteins_motifs[match_id])
             match_id += 1 #change the ID for next match
             del motif_i, motif_l, motif_s, motif_d, motif_c #delete variable after storing their value
             motif_m += 1
