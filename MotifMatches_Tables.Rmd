@@ -16,62 +16,7 @@ library(gridExtra)
 library(ggplot2)
 library(knitr) 
 
-MotifHits_raw<-read_tsv(file="/Users/JAVlvrd/Documents/Toxoplasma-2022/ToxoMotifs/Results/ELM_Dec22/ELM_Dec22_MotifMatches_complete.txt", col_names = T)
-SecEvd <- as.integer(MotifHits_raw$Organelle=="dense_granules")+as.integer(MotifHits_raw$Organelle=="rhoptries")+as.integer(MotifHits_raw$Organelle=="micronemes")
-MotifHits_raw$SecEvd <- sapply(SecEvd, function(x) if(is.na(x)){NA}else if(x){"yes"} else{'no'}) 
-rm(SecEvd)
-#colnames(MotifHits)
-
-#Instance number
-MotifHits_raw <- MotifHits_raw %>% filter(Motif_Name!="DEG_Nend_Nbox_1" & Motif_Name!="DEG_Nend_UBRbox_1" & Motif_Name!="DEG_Nend_UBRbox_2" & Motif_Name!="DEG_Nend_UBRbox_3" & Motif_Name!="LIG_BIR_II_1" & Motif_Name!="LIG_IBS_1" & Motif_Name!="LIG_Pex14_4" & Motif_Name!="LIG_RPA_C_Insects"  & Motif_Name!="LIG_RPA_C_Plants" & Motif_Name!="MOD_Cter_Amidation"  & Motif_Name!="MOD_NEK2_2")
-
-#MotifHits_raw<- MotifHits_raw %>% select(-...23)
-```
-
-```{r consolidate AF values,echo = FALSE}
-#Check which values are present in both AlphaFold and ColabFold scores
-temp <- (1*is.na(MotifHits_raw$mean_acc_a)+1*is.na(MotifHits_raw$mean_acc_b))==0
-
-#Change overlapping ColabFold scores to NA to keep only the AlphaFold ones
-MotifHits_raw[temp,28]<-NA
-MotifHits_raw[temp,29]<-NA
-
-#Combine scores
-MotifHits_raw$mean_pLDDT <- sapply(MotifHits_raw$mean_pLDDT_a, function(x) if(is.na(x)){0}else{x})+sapply(MotifHits_raw$mean_pLDDT_b, function(x) if(is.na(x)){0}else{x})
-MotifHits_raw$mean_acc <- sapply(MotifHits_raw$mean_acc_a, function(x) if(is.na(x)){0}else{x})+sapply(MotifHits_raw$mean_acc_b, function(x) if(is.na(x)){0}else{x})
-
-MotifHits_raw$mean_pLDDT <- sapply(MotifHits_raw$mean_pLDDT, function(x) if(x==0){NA}else{x})
-MotifHits_raw$mean_acc <- sapply(MotifHits_raw$mean_acc, function(x) if(x==0){NA}else{x})
-
-MotifHits_raw$Motif_acc <- MotifHits_raw$mean_acc_a/(MotifHits_raw$mean_pLDDT_a/100)
-
-# STAT1<-read_tsv(file="/Users/JAVlvrd/Documents/Toxoplasma-2022/ToxoMotifs/Results/STAT_MotifMatches_complete.txt", col_names = T)
-# SecEvd <- as.integer(STAT1$Organelle=="dense_granules")+as.integer(STAT1$Organelle=="rhoptries")+as.integer(STAT1$Organelle=="micronemes")
-# STAT1$SecEvd <- sapply(SecEvd, function(x) if(is.na(x)){NA}else if(x){"yes"} else{'no'}) 
-rm(temp)
-```
-
-```{R ELM_taxons, echo=FALSE}
-elm_tax <- read_tsv(file="/Users/JAVlvrd/Documents/Toxoplasma-2022/ToxoMotifs/Data/elm_classes_Dec22_taxons.tab.txt", col_names = T)
-elm_tax$code_bin <- paste(paste(as.character(elm_tax$ELM_Tg),as.character(elm_tax$InterPro_Tg),sep=""),as.character(elm_tax$ELM_Hs),sep="")
-tax_codes <- tibble(code_bin=c("000", "001", "010", "011", "100","101", "110", "111"),code_tax=c(4,3,4,3,4,3,2,1))
-elm_tax <- left_join(elm_tax,tax_codes, by = "code_bin") 
-rm(tax_codes)
-
-elm_tax <- elm_tax %>% select(Motif_Name,code_tax)
-MotifHits_raw <- left_join(MotifHits_raw,elm_tax,by="Motif_Name")
-rm(elm_tax)
-
-MotifHits <- MotifHits_raw %>% filter(code_tax==1 | code_tax==2 | (code_tax==3 & SecEvd=="yes"))
-MotifHits <- MotifHits %>% select(-mean_pLDDT_a,-mean_acc_a,-mean_pLDDT_b,-mean_acc_b)
-```
-
-```{r filters,echo = FALSE}
-MotifHits_filt <- MotifHits %>% filter(Motif_Disorder>=0.4 & (is.na(mean_pLDDT) | Motif_acc>0.8) & presence_str>0.7 & presence_spc>0.2 )
-
-#MotifHits_filt %>% filter(mean_acc<0.36 | mean_pLDDT>50) #take these out
-#MotifHits_filt %>% filter(mean_acc<0.36 & mean_pLDDT>50)
-
+MotifHits_filt<-read_tsv(file="/ALIAS_MotifMatches_filtered.tsv", col_names = T)
 ```
 
 ```{r Table_functions,echo = FALSE}
@@ -237,13 +182,6 @@ slimOverlapTriples <- function(overlaps){
   return(m_triples)
 }
 
-# slimOverlapMatrix(CytSkl_b_names,CytSkl_b)
-# slimOverlapArray(CytSkl_b_names,CytSkl_b)
-# slimOverlapTriples(slimOverlapArray(CytSkl_a_names,CytSkl_a))
-# 
-# slimOverlapArray(c(CytSkl_a_names,CytSkl_b_names),rbind(CytSkl_a,CytSkl_b))
-# slimOverlapTriples(slimOverlapArray(c(CytSkl_a_names,CytSkl_b_names),rbind(CytSkl_a,CytSkl_b)))
-
 ```
 
 ```{r Venn_functions,echo = FALSE}
@@ -322,12 +260,6 @@ for (i in 1:21){
 }
 RGD_orgs_long <- pivot_longer(RGD_orgs, cols=c("Strains", "Species"), names_to = "type", values_to = "proportion")
 ggplot(RGD_orgs_long,aes(x=Organelle, y=proportion, fill=type)) + geom_bar(position="dodge", stat="identity")+ theme_classic()
-# RGD %>% filter(TM_Domains>1) %>% select(Motif_Name) %>% table()
-# RGD %>% filter(TM_Domains>1)  %>% select(Predicted_Location_TAGM_MAP) %>% table()
-# RGD %>% filter(TM_Domains>1 & Organelle=="micronemes") 
-# RGD %>% filter(Organelle=="micronemes") %>% select(seq_id, Product_Description, Motif_Name, Motif_Instance,Motif_sSite, Dis_context, presence_str, presence_spc, Motif_acc,TM_Domains)
-# RGD %>% filter(Organelle=="micronemes") %>% select(Motif_Name) %>% table()
-# MotifHits %>% filter(seq_id=="TGME49_214940")
 
 ```
 ```{r RGD_p,echo = FALSE}
@@ -381,11 +313,6 @@ NLS <- MotifHits_filt %>% filter(Motif_Name=="TRG_NLS_Bipartite_1" |
                                    Motif_Name=="LIG_NRBOX"|
                                    Motif_Name=="LIG_PALB2_WD40_1") %>% filter(Organelle=="rhoptries" | Organelle=="dense_granules")
 
-#NLS %>% filter(Organelle=="dense_granules") 
-#NLS %>% filter(Organelle=="dense_granules")  %>% select(seq_id, Product_Description) %>% unique()
-#TGME49_240060
-#NLS %>% filter(Organelle=="rhoptries") 
-#NLS %>% filter(Organelle=="rhoptries")  %>% select(seq_id, Product_Description) %>% unique()
 
 #MotifHits %>% filter(seq_id=="TGME49_240060")%>% select(Motif_Name) %>% table()
 kable(NLS %>% filter(Organelle=="rhoptries" & Product_Description!="hypothetical_protein") %>% select(seq_id, Product_Description) %>% unique())
@@ -410,44 +337,19 @@ PDZ <- MotifHits_filt %>% filter(Motif_Name=="LIG_PDZ_Class_1" |
                                    Motif_Name=="LIG_FZD_DVL_PDZ" )%>% filter(Organelle=="rhoptries" | Organelle=="dense_granules")
 
 
-# PDZ %>% filter(Organelle=="dense_granules") 
-# PDZ %>% filter(Organelle=="dense_granules")  %>% select(seq_id, Product_Description) %>% unique()
-# PDZ %>% filter(Organelle=="rhoptries") 
-# PDZ %>% filter(Organelle=="rhoptries")  %>% select(seq_id, Product_Description) %>% unique()
-
-# ggplot(PDZ, aes(y=presence_spc, x=Organelle)) + geom_point()+
-#   ggtitle("PDZ motifs matches accross organelles") +  xlab("Organelle") + ylab("Presence proportion") +
-#   theme_classic() + theme(axis.text.x = element_text(angle = -45, vjust = 0.5, hjust=0.1)) +
-#   theme(axis.text=element_text(size=8),axis.title=element_text(size=12,face="bold"))
-# 
-# ggplot(PDZ, aes(y=presence_spc, x=Predicted_Location_TAGM_MAP)) + geom_point()+
-#   ggtitle("PDZ motifs matches accross organelles") +  xlab("Predicted Location TAGM MAP") + ylab("Presence proportion") +
-#   theme_classic() + theme(axis.text.x = element_text(angle = -45, vjust = 0.5, hjust=0.1)) +
-#   theme(axis.text=element_text(size=8),axis.title=element_text(size=12,face="bold"))
-
 kable(PDZ %>% select(Motif_Name,seq_id, Product_Description, Organelle, presence_str, presence_spc) %>% unique())
 ```
 
 ```{r KEN,echo = FALSE}
 kable(r_d_tables("DEG_APCC_KENBOX_2",MotifHits_filt))
 
-# MotifHits_filt %>% filter(Motif_Name=="DEG_APCC_KENBOX_2",Organelle=="dense_granules") 
-# MotifHits_filt %>% filter(Motif_Name=="DEG_APCC_KENBOX_2",Organelle=="dense_granules")  %>% select(seq_id, Product_Description) %>% unique()
-# MotifHits_filt %>% filter(Motif_Name=="DEG_APCC_KENBOX_2",Organelle=="rhoptries") 
-# MotifHits_filt %>% filter(Motif_Name=="DEG_APCC_KENBOX_2",Organelle=="rhoptries")  %>% select(seq_id, Product_Description) %>% unique()
 ```
 
 ```{r Calcineurin,echo = FALSE}
 Calc_names <- c("DOC_PP2B_PxIxI_1" ,"LIG_LRP6_Inhibitor_1")
 kable(r_d_tibble(Calc_names,MotifHits_filt))
-#kable(r_d_tables("DOC_PP2B_PxIxI_1"))
-# MotifHits_filt %>% filter(Motif_Name=="DOC_PP2B_PxIxI_1",Organelle=="dense_granules") 
-# MotifHits_filt %>% filter(Motif_Name=="DOC_PP2B_PxIxI_1",Organelle=="dense_granules")  %>% select(seq_id, Product_Description) %>% unique()
-# MotifHits_filt %>% filter(Motif_Name=="DOC_PP2B_PxIxI_1",Organelle=="rhoptries") 
-# MotifHits_filt %>% filter(Motif_Name=="DOC_PP2B_PxIxI_1",Organelle=="rhoptries")  %>% select(seq_id, Product_Description) %>% unique()
 
-
-Calcineurin<-read_tsv(file="/Users/JAVlvrd/Documents/Toxoplasma-2022/ToxoMotifs/Results/Calcineurin/Calcineurin_MotifMatches_complete.txt", col_names = T)
+Calcineurin<-read_tsv(file="Calcineurin_MotifMatches_complete.txt", col_names = T) #From publication
 SecEvd <- as.integer(Calcineurin$Organelle=="dense_granules")+as.integer(Calcineurin$Organelle=="rhoptries")+as.integer(Calcineurin$Organelle=="micronemes")
 Calcineurin$SecEvd <- sapply(SecEvd, function(x) if(is.na(x)){NA}else if(x){"yes"} else{'no'}) 
 
@@ -480,11 +382,6 @@ ESCRT <- MotifHits_filt %>% filter(Motif_Name=="LIG_PTAP_UEV_1" |
                                    Motif_Name=="LIG_LYPXL_L_2" |
                                    Motif_Name=="LIG_LYPXL_SIV_4" |
                                    Motif_Name=="DOC_MIT_MIM_1" ) %>% filter(Organelle=="dense_granules" | Organelle=="rhoptries")
-
-# ESCRT %>% filter(Organelle=="dense_granules") 
-# ESCRT %>% filter(Organelle=="dense_granules")  %>% select(seq_id, Product_Description) %>% unique()
-# ESCRT %>% filter(Organelle=="rhoptries") 
-# ESCRT %>% filter(Organelle=="rhoptries")  %>% select(seq_id, Product_Description) %>% unique()
 
 venn.diagram(
     x = list(
@@ -535,11 +432,6 @@ Proteasome <- MotifHits_filt %>% filter(Motif_Name=="DEG_APCC_DBOX_1" |
                                    Motif_Name=="LIG_APCC_Cbox_1"|
                                    Motif_Name=="LIG_APCC_Cbox_2" ) %>% filter(Organelle=="dense_granules" | Organelle=="rhoptries")
 
-# Proteasome %>% filter(Organelle=="dense_granules") 
-# Proteasome %>% filter(Organelle=="dense_granules")  %>% select(seq_id, Product_Description) %>% unique()
-# Proteasome %>% filter(Organelle=="rhoptries") 
-# Proteasome %>% filter(Organelle=="rhoptries")  %>% select(seq_id, Product_Description) %>% unique()
-
 ```
 ```{r Proteasome_overlaps,echo = FALSE}
 kable(slimOverlapMatrix(Protea_names,Proteasome))
@@ -587,17 +479,11 @@ CytSkl_a <- MotifHits_filt %>% filter(Motif_Name=="LIG_ActinCP_CPI_1" |
                                    Motif_Name=="LIG_Vh1_VBS_1"|
                                    Motif_Name=="LIG_WRC_WIRS_1")%>% filter(Organelle=="dense_granules" | Organelle=="rhoptries")
 
-# CytSkl_a %>% filter(Organelle=="dense_granules") 
-# CytSkl_a %>% filter(Organelle=="dense_granules")  %>% select(seq_id, Product_Description) %>% unique()
-# CytSkl_a %>% filter(Organelle=="rhoptries") 
-# CytSkl_a %>% filter(Organelle=="rhoptries")  %>% select(seq_id, Product_Description) %>% unique()
-
 ```
 ```{r CytSkl_a_overlaps,echo = FALSE}
 kable(slimOverlapMatrix(CytSkl_a_names,CytSkl_a))
 kable(slimOverlapPairs(slimOverlapMatrix(CytSkl_a_names,CytSkl_a)))
 
-#slim2overlap("LIG_ActinCP_TwfCPI_2","LIG_IBAR_NPY_1",CytSkl_a) #1 TGME49_262920
 slim2overlap("LIG_Actin_WH2_2","LIG_WRC_WIRS_1",CytSkl_a) #1  TGME49_304955 TGME49_261750
 slim2overlap("LIG_SH3_CIN85_PxpxPR_1","LIG_WRC_WIRS_1",CytSkl_a) #1 TGME49_300100
 
@@ -621,14 +507,7 @@ CytSkl_b <- MotifHits_filt %>% filter(Motif_Name=="LIG_SxIP_EBH_1" |
                                    Motif_Name=="LIG_GBD_Chelix_1"|
                                    Motif_Name=="LIG_KLC1_Yacidic_2") %>% filter(Organelle=="dense_granules" | Organelle=="rhoptries")
 
-# CytSkl_b %>% filter(Organelle=="dense_granules") 
-# CytSkl_b %>% filter(Organelle=="dense_granules")  %>% select(seq_id, Product_Description) %>% unique()
-# CytSkl_b %>% filter(Organelle=="rhoptries") 
-# CytSkl_b %>% filter(Organelle=="rhoptries")  %>% select(seq_id, Product_Description) %>% unique()
-
 slimsVennOverlap("LIG_SxIP_EBH_1","DOC_PP2A_B56_1" ,"LIG_KLC1_WD_1",CytSkl_b,"CytSkl_b_sec.png")
-# slimsVennOverlap("LIG_SxIP_EBH_1","DOC_PP2A_B56_1" ,"LIG_KLC1_WD_1",CytSkl_b,"CytSkl_b_rhop.png")
-# slimsVennOverlap("LIG_SxIP_EBH_1","DOC_PP2A_B56_1" ,"LIG_KLC1_WD_1",CytSkl_b,"CytSkl_b_degr.png")
 ```
 ```{r CytSkl_b_overlaps,echo = FALSE}
 kable(slimOverlapMatrix(CytSkl_b_names,CytSkl_b))
@@ -657,24 +536,10 @@ CytSkl <- rbind(CytSkl_a,CytSkl_b,ESCRT)
 
 slim2overlap("LIG_SH3_CIN85_PxpxPR_1","LIG_SxIP_EBH_1",CytSkl) 
 
-# temp_d <-tibble()
-# for(i in 1:length(CytSkl_over_1)){
-#   for(j in 1:length(CytSkl_over_2)){
-#     matches<-slim2overlap(CytSkl_over_1[i],CytSkl_over_2[j],CytSkl) 
-#     if(length(matches)>0){
-#       for(m in 1:length(matches)){
-#         temp <- CytSkl %>% filter(seq_id==matches[m]) %>% select(seq_id,Product_Description, Organelle) %>% unique()
-#         temp_d <-rbind(temp_d,temp)
-#       }
-#     }
-#   }
-# }
-
 all_cytskl <- rbind(CytSkl_a,CytSkl_b,ESCRT)
 
 CytSkl %>% select(Motif_Name, Product_Description, seq_id) %>% unique() %>% select(seq_id) %>% table() %>% sort()
 #TGME49_229010 TGME49_279420 TGME49_288000 TGME49_304955 TGME49_304720 TGME49_306060
-
 
 all_cytskl_names<-c("LIG_SH3_CIN85_PxpxPR_1","LIG_PTAP_UEV_1","LIG_LYPXL_S_1","LIG_SxIP_EBH_1")
 venn.diagram(
@@ -732,17 +597,6 @@ NFkB <- MotifHits_filt %>% filter(Motif_Name=="LIG_TRAF2_1" |
                                    Motif_Name=="LIG_TRAF2_2" |
                                    Motif_Name=="LIG_TRAF4_MATH_1" |
                                    Motif_Name=="LIG_TRAF6_MATH_1")%>% filter(Organelle=="dense_granules" | Organelle=="rhoptries")
-
-
-# NFkB %>% filter(Organelle=="dense_granules") 
-# NFkB %>% filter(Organelle=="dense_granules")  %>% select(seq_id, Product_Description) %>% unique()
-# NFkB %>% filter(Organelle=="rhoptries") 
-# NFkB %>% filter(Organelle=="rhoptries")  %>% select(seq_id, Product_Description) %>% unique()
-
-# MotifHits_filt %>% filter(Motif_Name=="LIG_TRAF6",Organelle=="dense_granules") 
-# MotifHits_filt %>% filter(Motif_Name=="LIG_TRAF6",Organelle=="dense_granules")  %>% select(seq_id, Product_Description) %>% unique()
-# MotifHits_filt %>% filter(Motif_Name=="LIG_TRAF6",Organelle=="rhoptries") 
-# MotifHits_filt %>% filter(Motif_Name=="LIG_TRAF6",Organelle=="rhoptries")  %>% select(seq_id, Product_Description) %>% unique()
 
 kable(slimOverlapMatrix(NFkB_names,NFkB))
 kable(slimOverlapPairs(slimOverlapMatrix(NFkB_names,NFkB)))

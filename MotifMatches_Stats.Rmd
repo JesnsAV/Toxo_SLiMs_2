@@ -15,62 +15,9 @@ library(tidyverse)
 library(gridExtra)
 library(knitr) 
 
-MotifHits_raw<-read_tsv(file="/Users/JAVlvrd/Documents/Toxoplasma-2022/ToxoMotifs/Results/ELM_Dec22/ELM_Dec22_MotifMatches_complete.txt", col_names = T)
-SecEvd <- as.integer(MotifHits_raw$Organelle=="dense_granules")+as.integer(MotifHits_raw$Organelle=="rhoptries")+as.integer(MotifHits_raw$Organelle=="micronemes")
-MotifHits_raw$SecEvd <- sapply(SecEvd, function(x) if(is.na(x)){NA}else if(x){"yes"} else{'no'}) 
-colnames(MotifHits_raw)
+MotifHits<-read_tsv(file="/ALIAS_MotifMatches_complete_extended.tsv", col_names = T)
+MotifHits_filt<-read_tsv(file="/ALIAS_MotifMatches_filtered.tsv", col_names = T)
 
-# MotifHits <- MotifHits %>% filter(Motif_Name!="CLV_PCSK_KEX2_1" & Motif_Name!="CLV_Separin_Fungi" & Motif_Name!="DEG_SCF_COI1_1" & Motif_Name!="DEG_SCF_TIR1_1" & Motif_Name!="DOC_CDC14_PxL_1" & Motif_Name!="DOC_CYCLIN_yClb1_LxF_4" & Motif_Name!="DOC_CYCLIN_yClb3_PxF_3" & Motif_Name!="DOC_CYCLIN_yClb5_NLxxxL_5" & Motif_Name!="DOC_CYCLIN_yCln2_LP_2" & Motif_Name!="LIG_APCC_ABBAyCdc20_2" & Motif_Name!="LIG_APCC_Cbox_2" & Motif_Name!="LIG_BIR_III_3" & Motif_Name!="LIG_BIR_III_4" & Motif_Name!="LIG_CID_NIM_1" & Motif_Name!="LIG_LIR_Nem_3" & Motif_Name!="LIG_LYPXL_yS_3" & Motif_Name!="LIG_Mtr4_Air2_1" & Motif_Name!="LIG_Mtr4_Trf4_1" & Motif_Name!="LIG_PCNA_yPIPBox_3" & Motif_Name!="LIG_Pex14_4" & Motif_Name!="LIG_RPA_C_Fungi" & Motif_Name!="LIG_RPA_C_Insects" & Motif_Name!="LIG_RPA_C_Plants" & Motif_Name!="LIG_RuBisCO_WRxxL_1" & Motif_Name!="LIG_WD40_WDR5_VDV_2" & Motif_Name!="LIG_WD40_WDR5_WIN_3")
-#Instance number
-MotifHits_raw <- MotifHits_raw %>% filter(Motif_Name!="DEG_Nend_Nbox_1" & Motif_Name!="DEG_Nend_UBRbox_1" & Motif_Name!="DEG_Nend_UBRbox_2" & Motif_Name!="DEG_Nend_UBRbox_3" & Motif_Name!="LIG_BIR_II_1" & Motif_Name!="LIG_IBS_1" & Motif_Name!="LIG_Pex14_4" & Motif_Name!="LIG_RPA_C_Insects"  & Motif_Name!="LIG_RPA_C_Plants" & Motif_Name!="MOD_Cter_Amidation"  & Motif_Name!="MOD_NEK2_2")
-
-
-```
-```{R ELM_taxons, echo=FALSE}
-elm_tax <- read_tsv(file="/Users/JAVlvrd/Documents/Toxoplasma-2022/ToxoMotifs/Data/elm_classes_Dec22_taxons.tab.txt", col_names = T)
-elm_tax$code_bin <- paste(paste(as.character(elm_tax$ELM_Tg),as.character(elm_tax$InterPro_Tg),sep=""),as.character(elm_tax$ELM_Hs),sep="")
-
-tax_codes <- tibble(code_bin=c("000", "001", "010", "011", "100","101", "110", "111"),code_tax=c(4,3,4,3,4,3,2,1))
-elm_tax <- left_join(elm_tax,tax_codes, by = "code_bin") 
-
-elm_tax <- elm_tax %>% filter(Instances>0)
-
-kable(table(elm_tax$code_bin))
-kable(table(elm_tax$code_bin)/nrow(elm_tax))
-kable(table(elm_tax$code_tax))
-kable(table(elm_tax$code_tax)/nrow(elm_tax))
-
-elm_tax <- elm_tax %>% select(Motif_Name,code_tax)
-
-MotifHits_raw <- left_join(MotifHits_raw,elm_tax,by="Motif_Name")
-kable(table(MotifHits_raw$code_tax))
-kable(table(MotifHits_raw$code_tax)/nrow(MotifHits_raw))
-```
-```{r consolidate AF values,echo = FALSE}
-#Check which values are present in both AlphaFold and ColabFold scores
-temp <- (1*is.na(MotifHits_raw$mean_acc_a)+1*is.na(MotifHits_raw$mean_acc_b))==0
-
-#Change overlapping ColabFold scores to NA to keep only the AlphaFold ones
-MotifHits_raw[temp,28]<-NA
-MotifHits_raw[temp,29]<-NA
-
-#Combine scores
-MotifHits_raw$mean_pLDDT <- sapply(MotifHits_raw$mean_pLDDT_a, function(x) if(is.na(x)){0}else{x})+sapply(MotifHits_raw$mean_pLDDT_b, function(x) if(is.na(x)){0}else{x})
-MotifHits_raw$mean_acc <- sapply(MotifHits_raw$mean_acc_a, function(x) if(is.na(x)){0}else{x})+sapply(MotifHits_raw$mean_acc_b, function(x) if(is.na(x)){0}else{x})
-
-MotifHits_raw$mean_pLDDT <- sapply(MotifHits_raw$mean_pLDDT, function(x) if(x==0){NA}else{x})
-MotifHits_raw$mean_acc <- sapply(MotifHits_raw$mean_acc, function(x) if(x==0){NA}else{x})
-
-MotifHits_raw$Motif_acc <- MotifHits_raw$mean_acc_a/(MotifHits_raw$mean_pLDDT_a/100)
-
-# STAT1<-read_tsv(file="/Users/JAVlvrd/Documents/Toxoplasma-2022/ToxoMotifs/Results/STAT_MotifMatches_complete.txt", col_names = T)
-# SecEvd <- as.integer(STAT1$Organelle=="dense_granules")+as.integer(STAT1$Organelle=="rhoptries")+as.integer(STAT1$Organelle=="micronemes")
-# STAT1$SecEvd <- sapply(SecEvd, function(x) if(is.na(x)){NA}else if(x){"yes"} else{'no'}) 
-rm(temp)
-```
-
-```{R Match_tax_filt, echo=FALSE}
-MotifHits <- MotifHits_raw %>% filter(code_tax==1 | code_tax==2 | (code_tax==3 & SecEvd=="yes"))
 ```
 
 
@@ -114,10 +61,6 @@ ggplot(MotifHits, aes(x=mean_acc)) +  geom_density() +geom_density(aes(x=mean_ac
   scale_color_manual(values=c("grey","#18974C")) + theme_classic() +
   theme(axis.text=element_text(size=12),axis.title=element_text(size=12,face="bold"))
 
-# ggplot(MotifHits, aes(x=mean_acc, col=Dis_context)) +  geom_density() + 
-#   ggtitle("Motif DSSP scores by Secretion") +  xlab("mean accessibility") + ylab("Density") + 
-#   scale_color_manual(values=c("grey","#18974C")) + theme_classic()
-
 ggplot(MotifHits[MotifHits$Dis_context=="order",], aes(x=mean_acc, col=Motif_Type)) +  geom_density() +
   ggtitle("Motif in Order Context DSSP scores by Motif Type") +  xlab("mean accessibility") + ylab("Density") + 
   geom_vline(xintercept=thrs_acc, col="red", size=0.5) +
@@ -151,10 +94,6 @@ ggplot(MotifHits, aes(x=mean_pLDDT)) +  geom_density() + geom_density(aes(x=mean
   geom_vline(xintercept=thrs_pLDDT, col="red", size=0.5) +
   scale_color_manual(values=c("grey","#18974C"))+ theme_classic() +
   theme(axis.text=element_text(size=12),axis.title=element_text(size=12,face="bold"))
-
-# ggplot(MotifHits, aes(x=mean_pLDDT, col=Dis_context)) +  geom_density() +
-#   ggtitle("Motif AF2 scores by Secretion ") +  xlab("mean pLDDT") + ylab("Density") + 
-#   scale_color_manual(values=c("grey","#18974C")) + theme_classic()
 
 ggplot(MotifHits[MotifHits$Dis_context=="order",], aes(x=mean_pLDDT, col=Motif_Type)) +  geom_density() +
   ggtitle("Motif in Order Context AF2 scores by Motif Type ") +  xlab("mean pLDDT") + ylab("Density") + 
@@ -372,25 +311,11 @@ upset(fromExpression(input),
       )
 ```
 
-
-```{r filters}
-MotifHits_filt <- MotifHits %>% filter(Motif_Disorder>=0.4 & (is.na(mean_pLDDT) | Motif_acc>1.2) & presence_str>0.7 & presence_spc>0.2 & MotifHits$doms_num==0)
-
-#MotifHits_filt %>% filter(mean_acc<0.36 | mean_pLDDT>50) #take these out
-#MotifHits_filt %>% filter(mean_acc<0.36 & mean_pLDDT>50)
-
-```
 ```{r Location Evidence, echo=FALSE}
 ggplot(MotifHits_filt[!is.na(MotifHits_filt$Organelle),], aes(x=Organelle, fill=SecEvd)) +  geom_bar() +
   ggtitle("Subcellular Location") +  xlab("Location") + ylab("Matches count") + 
   scale_fill_manual(values=c("grey","#18974C")) + theme_classic() + theme(axis.text.x = element_text(angle = -45, vjust = 0.5, hjust=0.1)) +
   theme(axis.text=element_text(size=8),axis.title=element_text(size=12,face="bold"))
-
-# ggplot(MotifHits[!is.na(MotifHits$Organelle) ,], aes(x=Organelle,  col=SecEvd, fill=Dis_context)) +  geom_bar(position="fill") +
-#   ggtitle("Subcellular Location by Disorder Context") +  xlab("Location") + ylab("Matches proportion") + 
-#   scale_fill_manual(values=c("grey","#18974C")) + scale_color_manual(values=c("grey","black")) + 
-#   theme_classic() + theme(axis.text.x = element_text(angle = -45, vjust = 0.5, hjust=0.1)) +
-#   theme(axis.text=element_text(size=8),axis.title=element_text(size=12,face="bold"))
 
 ggplot(MotifHits_filt[!is.na(MotifHits_filt$Organelle) ,], aes(x=Organelle,  col=SecEvd, fill=Motif_Type)) +  geom_bar(position="fill") +
   ggtitle("Subcellular Location by Motif Type") +  xlab("Location") + ylab("Matches proportion") + 

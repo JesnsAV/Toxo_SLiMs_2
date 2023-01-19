@@ -1,0 +1,68 @@
+---
+title: "Filter motif matches"
+author: "Jesus Alvarado Valverde"
+date: "2023-01-19"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+```{r MotifMatches_table,echo = FALSE}
+library(tidyverse)
+library(gridExtra)
+library(ggplot2)
+library(knitr) 
+
+MotifHits_raw<-read_tsv(file="ALIAS_MotifMatches_complete.txt", col_names = T)
+
+SecEvd <- as.integer(MotifHits_raw$Organelle=="dense_granules")+as.integer(MotifHits_raw$Organelle=="rhoptries")+as.integer(MotifHits_raw$Organelle=="micronemes")
+MotifHits_raw$SecEvd <- sapply(SecEvd, function(x) if(is.na(x)){NA}else if(x){"yes"} else{'no'}) 
+rm(SecEvd)
+
+#Instance number
+MotifHits_raw <- MotifHits_raw %>% filter(Motif_Name!="DEG_Nend_Nbox_1" & Motif_Name!="DEG_Nend_UBRbox_1" & Motif_Name!="DEG_Nend_UBRbox_2" & Motif_Name!="DEG_Nend_UBRbox_3" & Motif_Name!="LIG_BIR_II_1" & Motif_Name!="LIG_IBS_1" & Motif_Name!="LIG_Pex14_4" & Motif_Name!="LIG_RPA_C_Insects"  & Motif_Name!="LIG_RPA_C_Plants" & Motif_Name!="MOD_Cter_Amidation"  & Motif_Name!="MOD_NEK2_2")
+```
+
+```{r consolidate AF values,echo = FALSE}
+#Check which values are present in both AlphaFold and ColabFold scores
+temp <- (1*is.na(MotifHits_raw$mean_acc_a)+1*is.na(MotifHits_raw$mean_acc_b))==0
+
+#Change overlapping ColabFold scores to NA to keep only the AlphaFold ones
+MotifHits_raw[temp,28]<-NA
+MotifHits_raw[temp,29]<-NA
+
+#Combine scores
+MotifHits_raw$mean_pLDDT <- sapply(MotifHits_raw$mean_pLDDT_a, function(x) if(is.na(x)){0}else{x})+sapply(MotifHits_raw$mean_pLDDT_b, function(x) if(is.na(x)){0}else{x})
+MotifHits_raw$mean_acc <- sapply(MotifHits_raw$mean_acc_a, function(x) if(is.na(x)){0}else{x})+sapply(MotifHits_raw$mean_acc_b, function(x) if(is.na(x)){0}else{x})
+
+MotifHits_raw$mean_pLDDT <- sapply(MotifHits_raw$mean_pLDDT, function(x) if(x==0){NA}else{x})
+MotifHits_raw$mean_acc <- sapply(MotifHits_raw$mean_acc, function(x) if(x==0){NA}else{x})
+
+MotifHits_raw$Motif_acc <- MotifHits_raw$mean_acc_a/(MotifHits_raw$mean_pLDDT_a/100)
+rm(temp)
+```
+
+```{R ELM_taxons, echo=FALSE}
+elm_tax <- read_tsv(file="Taxons_Table.tab.txt", col_names = T)
+elm_tax$code_bin <- paste(paste(as.character(elm_tax$ELM_Tg),as.character(elm_tax$InterPro_Tg),sep=""),as.character(elm_tax$ELM_Hs),sep="")
+tax_codes <- tibble(code_bin=c("000", "001", "010", "011", "100","101", "110", "111"),code_tax=c(4,3,4,3,4,3,2,1))
+elm_tax <- left_join(elm_tax,tax_codes, by = "code_bin") 
+rm(tax_codes)
+
+elm_tax <- elm_tax %>% select(Motif_Name,code_tax)
+MotifHits_raw <- left_join(MotifHits_raw,elm_tax,by="Motif_Name")
+rm(elm_tax)
+
+MotifHits <- MotifHits_raw %>% filter(code_tax==1 | code_tax==2 | (code_tax==3 & SecEvd=="yes"))
+MotifHits <- MotifHits %>% select(-mean_pLDDT_a,-mean_acc_a,-mean_pLDDT_b,-mean_acc_b)
+```
+
+```{r filters,echo = FALSE}
+MotifHits_filt <- MotifHits %>% filter(Motif_Disorder>=0.4 & (is.na(mean_pLDDT) | Motif_acc>0.8) & presence_str>0.7 & presence_spc>0.2 )
+
+write_tsv(MotifHits,"ALIAS_MotifMatches_complete_extended.tsv")
+write_tsv(MotifHits_filt,"ALIAS_MotifMatches_filtered.tsv")
+```
